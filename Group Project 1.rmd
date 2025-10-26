@@ -4,4 +4,103 @@ author: "cameronjosephblackmangione"
 output: html_document
 date: "2025-10-26"
 ---
+```{r}
+library(dplyr)
+library(ggplot2)
+library(nycflights13)
+library(readr)
+library(curl)
+library(tidyr)
+library(fivethirtyeight)
+library(tidyverse)
+library(resampledata3)
+library(moderndive)
+library(readxl)
+```
+```{r}
+glimpse(FlightDelays)
+```
+
+
+```{r}
+weather
+```
+```{r}
+flights
+```
+```{r}
+flights_ua <- flights %>%
+  filter(carrier == "UA")
+glimpse(flights_ua)
+```
+
+```{r}
+fwj <- flights_ua %>%
+  inner_join(weather, by = c("year", "month", "day", "hour", "origin"))
+glimpse(fwj)
+```
+```{r}
+fwj
+```
+
+```{r}
+late <- fwj %>%
+  filter(dep_delay >0)
+glimpse(late)
+```
+```{r}
+fwj <- fwj %>%
+  mutate(late = dep_delay > 0)
+fwj
+```
+```{r}
+late_mean <- fwj %>%
+  summarize(mean= mean(late , na.rm=TRUE)) %>%
+  summrize(sd = sd(late))
+late_mean
+```
+
+```{r}
+ggplot(data = fwj, aes(x = temp, y = dep_delay))+
+  geom_point(alpha = 0.7)
+```
+```{r}
+ggplot(data = fwj, aes(x = wind_gust, y = dep_delay))+
+  geom_point(alpha = 0.7)
+```
+```{r}
+ggplot(data = fwj, aes(x = precip, y = dep_delay))+
+  geom_point(alpha = 0.7)
+```
+```{r}
+ggplot(data = fwj, aes(x = visib, y = dep_delay))+
+  geom_point(alpha = 0.7)
+```
+
+```{r}
+observed <- mean(fwj$dep_delay)-mean(fwj$dep_delay)
+
+N <- 10^3-1
+
+sample.size = nrow(fwj)
+
+group.1.size = nrow(fwj[fwj$dep_delay])
+
+result <- numeric(N)
+
+for (i in 1:N)
+{
+  index = sample(sample.size, size = group.1.size, replace=FALSE)
+  result[i] = mean(fwj$dep_delay[index]) - mean(fwj$dep_delay[-index])
+}
+
+ggplot(data=tibble(result), mapping= aes(x=result)) + 
+  geom_histogram() + 
+  geom_vline(xintercept = observed, color = "red")
+
+2*(sum(result >= observed) +1)/(N + 1)
+```
+
+
+
 
