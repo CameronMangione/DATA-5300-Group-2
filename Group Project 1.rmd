@@ -1,0 +1,7 @@
+---
+title: "Group Project 1"
+author: "cameronjosephblackmangione"
+output: html_document
+date: "2025-10-26"
+---
+
