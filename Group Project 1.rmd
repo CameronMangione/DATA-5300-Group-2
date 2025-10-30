@@ -129,6 +129,92 @@ ggplot(data = tibble(result), aes(x = result))+
 observed
 2*(sum(abs(result) >= observed) +1) / (N+1)
 ```
+### Ahrial worked on time of day
+```{r}
+average_delay_by_hour <- merged %>%
+      group_by(hour) %>%
+      summarize(avg_dep_delay = mean(dep_delay, na.rm = TRUE))
+
+ggplot(average_delay_by_hour, aes(x = hour, y = avg_dep_delay)) +
+      geom_line() +
+      geom_point() +
+      labs(title = "Average Departure Delay by Hour of Day",
+           x = "Hour of Day",
+           y = "Average Departure Delay (minutes)")
+flights_hourly <- merged %>%
+  group_by(hour) %>%
+  summarize(
+    total_flights = n(),
+    dc_count = sum(late),
+    dc_percentage = (dc_count / total_flights) * 100)
+flights_hourly_dc
+
+ggplot(data = flights_hourly, aes(x = hour, y = total_flights)) +
+  geom_line() +
+  labs(title = "Total Flights by Hour",
+       x = "Scheduled Departure Hour",
+       y = "Number of Flights")
+
+ggplot(data = flights_hourly, aes(x = hour, y = dc_percentage)) +
+  geom_line() +
+  labs(title = "Percentage of Late Flights by Hour",
+       x = "Scheduled Departure Hour",
+       y = "Percentage of Late Flights")
+```
+There is an inflection point around noon so we will split the data between morning and evening.
+
+```{r}
+# time of day
+# compare evening vs day
+
+#filter for day
+merged<-merged%>%
+  mutate(morning = dep_time <1200)%>%
+  mutate(evening = dep_time>=1200)
+
+
+#calculate and store the observed difference in the sample
+observed <- mean(merged$dep_delay[merged$evening==TRUE]) -
+mean(merged$dep_delay[merged$morning==TRUE])
+
+#N = number of simulations we will use
+N <- 10^3-1
+
+#sample.size = the number of observations in our sample
+sample.size = nrow(merged)
+
+#group.1.size = the number of observations in the first group
+group.1.size = nrow(merged[merged$evening==TRUE,])
+
+#create a blank vector to store the simulation results
+result <- numeric(N)
+
+#use a for loop to cycle through values of i ranging from 1 to N
+for(i in 1:N)
+{
+  index = sample(sample.size, size=group.1.size, replace = FALSE)
+
+  #calculate and store the difference in
+  #mean dep_delay between the index and non-index groups
+  result[i] = mean(merged$dep_delay[index]) - mean(merged$dep_delay[-index])
+}
+
+#plot a histogram of the simulated differences
+#add a vertical line at the observed difference
+ggplot(data=tibble(result), mapping = aes(x=result)) +
+  geom_histogram(bins = 50) +
+  geom_vline(xintercept = observed, color = "red")
+
+#Calculate the p-value
+pvalue <-(sum(result >= observed) + 1) / (N + 1)
+pvalue
+
+if (pvalue <= 0.05) {
+  print("Reject the null hypothesis.")
+} else {
+  print("Fail to reject the null hypothesis.")
+}
+```
 
 ```{r}
 observed <- mean(merged$temp[merged$late == TRUE]) - mean(merged$temp[merged$late == FALSE])
