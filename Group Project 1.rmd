@@ -17,10 +17,6 @@ library(resampledata3)
 library(moderndive)
 library(readxl)
 ```
-```{r}
-glimpse(FlightDelays)
-```
-
 
 ```{r}
 weather
@@ -30,76 +26,160 @@ flights
 ```
 ```{r}
 flights_ua <- flights %>%
-  filter(carrier == "UA")
+  filter(carrier == "UA") %>%
+  filter(!is.na(dep_delay))
 glimpse(flights_ua)
 ```
+```{r}
+weather_clean <- weather %>%
+  filter(!is.na(wind_speed)) %>%
+  filter(!is.na(temp)) %>%
+  filter(!is.na(visib)) %>%
+  filter(!is.na(precip))
+glimpse(weather_clean)
+```
+```{r}
+merged <- flights_ua %>%
+  inner_join(weather_clean, by = c("year", "month", "day", "hour", "origin"))
+glimpse(merged)
+```
 
 ```{r}
-fwj <- flights_ua %>%
-  inner_join(weather, by = c("year", "month", "day", "hour", "origin"))
-glimpse(fwj)
-```
-```{r}
-fwj
-```
-
-```{r}
-late <- fwj %>%
-  filter(dep_delay >0)
-glimpse(late)
-```
-```{r}
-fwj <- fwj %>%
+merged <- merged %>%
   mutate(late = dep_delay > 0)
-fwj
-```
-```{r}
-late_mean <- fwj %>%
-  summarize(mean= mean(late , na.rm=TRUE)) %>%
-  summrize(sd = sd(late))
-late_mean
+glimpse(merged)
 ```
 
 ```{r}
-ggplot(data = fwj, aes(x = temp, y = dep_delay))+
+ggplot(data = merged, aes(x = temp, y = dep_delay))+
   geom_point(alpha = 0.7)
 ```
 ```{r}
-ggplot(data = fwj, aes(x = wind_gust, y = dep_delay))+
+ggplot(data = merged, aes(x = wind_gust, y = dep_delay))+
   geom_point(alpha = 0.7)
 ```
 ```{r}
-ggplot(data = fwj, aes(x = precip, y = dep_delay))+
+ggplot(data = merged, aes(x = precip, y = dep_delay))+
   geom_point(alpha = 0.7)
 ```
 ```{r}
-ggplot(data = fwj, aes(x = visib, y = dep_delay))+
+ggplot(data = merged, aes(x = visib, y = dep_delay))+
   geom_point(alpha = 0.7)
 ```
 
+### Cameron worked on the precipitation data.
 ```{r}
-observed <- mean(fwj$dep_delay)-mean(fwj$dep_delay)
+merged_precip <- merged %>%
+  filter(precip > 0)
+glimpse(merged_precip)
+```
 
-N <- 10^3-1
+```{r}
+observed <- mean(merged_precip$precip[merged_precip$late == TRUE]) - mean(merged_precip$precip[merged_precip$late == FALSE])
 
-sample.size = nrow(fwj)
+N <- 10^4-1
 
-group.1.size = nrow(fwj[fwj$dep_delay])
+sample.size = nrow(merged_precip)
+
+group.1.size = nrow(merged_precip[merged_precip$late == TRUE,])
 
 result <- numeric(N)
 
 for (i in 1:N)
 {
   index = sample(sample.size, size = group.1.size, replace=FALSE)
-  result[i] = mean(fwj$dep_delay[index]) - mean(fwj$dep_delay[-index])
+  result[i] = mean(merged_precip$precip[index]) - mean(merged_precip$precip[-index])
 }
 
-ggplot(data=tibble(result), mapping= aes(x=result)) + 
+ggplot(data = tibble(result), aes(x = result))+
   geom_histogram() + 
   geom_vline(xintercept = observed, color = "red")
 
-2*(sum(result >= observed) +1)/(N + 1)
+observed
+2*(sum(result >= observed) +1) / (N+1)
 ```
+
+```{r}
+merged_visib <- merged %>%
+  filter(visib < 10)
+glimpse(merged_visib)
+```
+
+```{r}
+observed <- mean(merged_visib$visib[merged_visib$late == TRUE]) - mean(merged_visib$visib[merged_visib$late == FALSE])
+
+N <- 10^4-1
+
+sample.size = nrow(merged_visib)
+
+group.1.size = nrow(merged_visib[merged_visib$late == TRUE,])
+
+result <- numeric(N)
+
+for (i in 1:N)
+{
+  index = sample(sample.size, size = group.1.size, replace=FALSE)
+  result[i] = mean(merged_visib$visib[index]) - mean(merged_visib$visib[-index])
+}
+
+ggplot(data = tibble(result), aes(x = result))+
+  geom_histogram() + 
+  geom_vline(xintercept = observed, color = "red")
+
+observed
+2*(sum(abs(result) >= observed) +1) / (N+1)
+```
+
+```{r}
+observed <- mean(merged$temp[merged$late == TRUE]) - mean(merged$temp[merged$late == FALSE])
+
+N <- 10^4-1
+
+sample.size = nrow(merged)
+
+group.1.size = nrow(merged[merged$late == TRUE,])
+
+result <- numeric(N)
+
+for (i in 1:N)
+{
+  index = sample(sample.size, size = group.1.size, replace=FALSE)
+  result[i] = mean(merged$temp[index]) - mean(merged$temp[-index])
+}
+
+ggplot(data = tibble(result), aes(x = result))+
+  geom_histogram() + 
+  geom_vline(xintercept = observed, color = "red")
+
+observed
+2*(sum(result >= observed) +1) / (N+1)
+```
+```{r}
+observed <- mean(merged$wind_speed[merged$late == TRUE]) - mean(merged$wind_speed[merged$late == FALSE])
+
+N <- 10^4-1
+
+sample.size = nrow(merged)
+
+group.1.size = nrow(merged[merged$late == TRUE,])
+
+result <- numeric(N)
+
+for (i in 1:N)
+{
+  index = sample(sample.size, size = group.1.size, replace=FALSE)
+  result[i] = mean(merged$wind_speed[index]) - mean(merged$wind_speed[-index])
+}
+
+ggplot(data = tibble(result), aes(x = result))+
+  geom_histogram() + 
+  geom_vline(xintercept = observed, color = "red")
+
+observed
+2*(sum(result >= observed) +1) / (N+1)
+```
+
+
 
 
 
