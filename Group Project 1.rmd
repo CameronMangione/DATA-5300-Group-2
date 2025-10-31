@@ -55,7 +55,7 @@ ggplot(data = merged, aes(x = temp, y = dep_delay))+
   geom_point(alpha = 0.7)
 ```
 ```{r}
-ggplot(data = merged, aes(x = wind_gust, y = dep_delay))+
+ggplot(data = merged, aes(x = wind_speed, y = dep_delay))+
   geom_point(alpha = 0.7)
 ```
 ```{r}
@@ -263,6 +263,79 @@ ggplot(data = tibble(result), aes(x = result))+
 
 observed
 2*(sum(result >= observed) +1) / (N+1)
+```
+
+### Time of year (Jack)
+
+#### Analyze time of year data
+Analyzing number of late flights by month
+```{r}
+
+
+ggplot(data = merged, aes(x = factor(month), fill = late)) +
+  geom_bar() +
+  labs(title = "Number of Late Flights by Month",
+       x = "Month",
+       y = "Number of Late Flights")
+```
+Average delays for a flight per month
+```{r}
+
+merged <- merged %>%
+  mutate(dep_delay_adj =ifelse(dep_delay > 0, dep_delay, 0))  #adjust dep_delay to 0 
+
+avg_delay_by_month <- merged %>%
+  group_by(month) %>%
+  summarise(avg_delay = mean(dep_delay_adj, na.rm = TRUE))
+
+# Then, plot
+ggplot(data = avg_delay_by_month, aes(x = factor(month), y = avg_delay)) +
+  geom_col(fill = "steelblue") +
+  labs(title = "Average Departure Delay by Month",
+       x = "Month",
+       y = "Average Delay (minutes)")
+```
+
+From the above charts, it looks like summer has the most delays. My hypothesis is that summer average delays differ from other seasons.
+### Discretionize time of year (summer and other)
+
+```{r}
+merged <- merged %>%
+  mutate(summerLabel = ifelse(month %in% c(6, 7, 8), "Summer Months", "Other Months"))
+  
+```
+
+
+```{r}
+avg_delay_by_summer_and_other <- merged %>%
+  group_by(summerLabel) %>%
+  summarise(avg_delay = mean(dep_delay_adj, na.rm = TRUE))
+ggplot(data = avg_delay_by_summer_and_other, aes(x = summerLabel, y = avg_delay, fill = summerLabel)) +
+  geom_col() +
+  labs(title = "Average Delay: Summer vs. Other Months",
+       x = "Time of Year",
+       y = "Average Departure Delay (minutes)")
+
+```
+
+### Summer late flights permutation test
+```{r}
+# Hypothesis
+# h.0 = flight_delays.summer == flight_delays.other  (no difference between carrier delays)
+# h.alt = flight_delays.winter != flight_delays.other
+
+group1 <- merged$dep_delay_adj[merged$summerLabel == "Summer Months"]
+group2 <- merged$dep_delay_adj[merged$summerLabel != "Summer Months"]
+pvalue <- perm_test(group1,group2)
+
+
+if (pvalue < 0.05) {
+  cat("The p-value is", format(pvalue, scientific = FALSE), 
+      "- Since this is below 0.05, we reject the null hypothesis.\n")
+} else {
+  cat("The p-value is", format(pvalue, scientific = FALSE), 
+      "- Since this is above 0.05, we fail to reject the null hypothesis.\n")
+}
 ```
 
 
