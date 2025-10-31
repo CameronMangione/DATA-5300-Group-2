@@ -1,8 +1,10 @@
 ---
 title: "Group Project 1"
 author: "cameronjosephblackmangione"
-output: html_document
 date: "2025-10-26"
+output:
+  pdf_document: default
+  html_document: default
 ---
 ```{r}
 library(dplyr)
@@ -216,19 +218,6 @@ flights_hourly <- merged %>%
     total_flights = n(),
     dc_count = sum(late),
     dc_percentage = (dc_count / total_flights) * 100)
-flights_hourly_dc
-
-ggplot(data = flights_hourly, aes(x = hour, y = total_flights)) +
-  geom_line() +
-  labs(title = "Total Flights by Hour",
-       x = "Scheduled Departure Hour",
-       y = "Number of Flights")
-
-ggplot(data = flights_hourly, aes(x = hour, y = dc_percentage)) +
-  geom_line() +
-  labs(title = "Percentage of Late Flights by Hour",
-       x = "Scheduled Departure Hour",
-       y = "Percentage of Late Flights")
 ```
 There is an inflection point around noon so we will split the data between morning and evening.
 
