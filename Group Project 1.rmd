@@ -372,7 +372,64 @@ if (pvalue < 0.05) {
   cat("The p-value is", format(pvalue, scientific = FALSE), 
       "- Since this is above 0.05, we fail to reject the null hypothesis.\n")
 }
-
-
 ```
+
+### Jacob worked on the temperature and wind speed data.
+#### Permutation test for relationship between temperature and delays (Jacob)
+```{r}
+observed <- mean(merged$temp[merged$late == TRUE]) - mean(merged$temp[merged$late == FALSE])
+
+N <- 10^4-1
+
+sample.size = nrow(merged)
+
+group.1.size = nrow(merged[merged$late == TRUE,])
+
+result <- numeric(N)
+
+for (i in 1:N)
+{
+  index = sample(sample.size, size = group.1.size, replace=FALSE)
+  result[i] = mean(merged$temp[index]) - mean(merged$temp[-index])
+}
+
+ggplot(data = tibble(result), aes(x = result))+
+  geom_histogram() + 
+  geom_vline(xintercept = observed, color = "red")
+
+observed
+2*(sum(result >= observed) +1) / (N+1)
+```
+#### Permutation test for relationship between wind speed and delays (Jacob)
+```{r}
+observed <- mean(merged$wind_speed[merged$late == TRUE]) - mean(merged$wind_speed[merged$late == FALSE])
+
+N <- 10^4-1
+
+sample.size = nrow(merged)
+
+group.1.size = nrow(merged[merged$late == TRUE,])
+
+result <- numeric(N)
+
+for (i in 1:N)
+{
+  index = sample(sample.size, size = group.1.size, replace=FALSE)
+  result[i] = mean(merged$wind_speed[index]) - mean(merged$wind_speed[-index])
+}
+
+ggplot(data = tibble(result), aes(x = result))+
+  geom_histogram() + 
+  geom_vline(xintercept = observed, color = "red")
+
+observed
+2*(sum(result >= observed) +1) / (N+1)
+```
+#### Histogram of distribution of wind speed (Jacob)
+
+```{r}
+ggplot(data = merged, mapping = aes(x = wind_speed)) +
+  geom_histogram(bins=40, color="white", fill="cornflowerblue")
+```
+
 
