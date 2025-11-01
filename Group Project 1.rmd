@@ -38,7 +38,7 @@ perm_test <- function(group_one,group_two,n_perm = 10^4-1){
   #create a blank vector to store the simulation results
   result <- numeric(n_perm)
 
-  #use a for loop to cycle through values of i ranging from 1 to N
+  #use a for loop to cycle through values of i ranging from 1 to n_perm
   for(i in 1:n_perm)
   {
     index <- sample(sample.size, size=group.1.size, replace = FALSE)
@@ -46,7 +46,11 @@ perm_test <- function(group_one,group_two,n_perm = 10^4-1){
     result[i] <- mean(groups_combined[index]) - 
                 mean(groups_combined[-index])
   }
-
+  
+  ggplot(data = tibble(result), aes(x = result))+
+    geom_histogram() + 
+    geom_vline(xintercept = observed, color = "red")
+  
   p_value <- (sum(abs(result) >= abs(observed)) + 1) / (N + 1)
 
   return (p_value)
@@ -293,9 +297,7 @@ for (i in 1:N)
   result[i] = mean(merged$wind_speed[index]) - mean(merged$wind_speed[-index])
 }
 
-ggplot(data = tibble(result), aes(x = result))+
-  geom_histogram() + 
-  geom_vline(xintercept = observed, color = "red")
+
 
 observed
 2*(sum(result >= observed) +1) / (N+1)
@@ -333,7 +335,7 @@ ggplot(data = avg_delay_by_month, aes(x = factor(month), y = avg_delay)) +
 ```
 
 From the above charts, it looks like summer has the most delays. My hypothesis is that summer average delays differ from other seasons.
-### Discretionize time of year (summer and other)
+#### Discretionize time of year (summer and other)
 
 ```{r}
 merged <- merged %>%
@@ -354,14 +356,15 @@ ggplot(data = avg_delay_by_summer_and_other, aes(x = summerLabel, y = avg_delay,
 
 ```
 
-### Summer late flights permutation test
+
+#### Summer late flights permutation test
 ```{r}
 # Hypothesis
 # h.0 = flight_delays.summer == flight_delays.other  (no difference between carrier delays)
 # h.alt = flight_delays.winter != flight_delays.other
 
-group1 <- merged_timeofyear_clean$dep_delay[merged$summerLabel == "Summer Months"]
-group2 <- merged_timeofyear_clean$dep_delay[merged$summerLabel != "Summer Months"]
+group1 <- merged$dep_delay_adj[merged$summerLabel == "Summer Months"]
+group2 <- merged$dep_delay_adj[merged$summerLabel != "Summer Months"]
 pvalue <- perm_test(group1,group2)
 
 
@@ -375,4 +378,79 @@ if (pvalue < 0.05) {
 
 
 ```
+### Visibility (jack)
 
+#### Analyze time of year data
+Analyzing number of late flights by month
+```{r}
+ggplot(data = merged, aes(x = visib, fill = late)) +
+  geom_bar() +
+  labs(title = "Number of Late Flights by visiblity",
+       x = "Visibility (Miles)",
+       y = "Number of Late Flights")
+```
+```{r}
+ggplot(data = merged, aes(x = visib, fill = late)) +
+  geom_bar() +
+  labs(title = "Number of Late Flights by visiblity",
+       x = "Visibility (Miles)",
+       y = "Number of Late Flights")
+```
+
+```{r}
+
+merged <- merged %>%
+  mutate(dep_delay_adj =ifelse(dep_delay > 0, dep_delay, 0))  #adjust dep_delay to 0 when no delay 
+
+avg_delay_by_visibilty <- merged %>%
+  group_by(visib) %>%
+  summarise(avg_delay = mean(dep_delay_adj, na.rm = TRUE))
+
+# Then, plot
+ggplot(data = avg_delay_by_visibilty, aes(x = factor(visib), y = avg_delay)) +
+  geom_col(fill = "steelblue") +
+  labs(title = "Average Departure Delay by Visibility (Miles)",
+       x = "Visibility (Miles)",
+       y = "Average Delay (minutes)")
+
+```
+Based on IFR low visibility is less than 3 miles
+#### Discretionize visibility (low, normal)
+
+```{r}
+merged <- merged %>%
+  mutate(visibilityLabel = ifelse(visib <=3, "Low Visibility", "Normal Visibility"))
+```
+
+```{r}
+avg_delay_by_visibility <- merged %>%
+  group_by(visibilityLabel) %>%
+  summarise(avg_delay = mean(dep_delay_adj, na.rm = TRUE))
+ggplot(data = avg_delay_by_visibility, aes(x = visibilityLabel, y = avg_delay, fill = visibilityLabel)) +
+  geom_col() +
+  labs(title = "Average Delay: Low Visibility vs Normal Visibility",
+       x = "Visibility",
+       y = "Average Departure Delay (minutes)")
+
+```
+#### Visibility flights permutation test
+```{r}
+# Hypothesis
+# h.0 = flight_delays.low_visibility == flight_delays.normal_visibility  (no difference between carrier delays)
+# h.alt = flight_delays.low_visibility != flight_delays.normal_visibility
+
+group1 <- merged$dep_delay_adj[merged$visibilityLabel == "Low Visibility"]
+group2 <- merged$dep_delay_adj[merged$visibilityLabel != "Low Visibility"]
+pvalue <- perm_test(group1,group2)
+
+
+if (pvalue < 0.05) {
+  cat("The p-value is", format(pvalue, scientific = FALSE), 
+      "- Since this is below 0.05, we reject the null hypothesis.\n")
+} else {
+  cat("The p-value is", format(pvalue, scientific = FALSE), 
+      "- Since this is above 0.05, we fail to reject the null hypothesis.\n")
+}
+
+
+```
