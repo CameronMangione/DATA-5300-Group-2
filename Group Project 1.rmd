@@ -207,24 +207,17 @@ There is an inflection point around noon so we will split the data between morni
 # time of day
 # compare evening vs day
 
-#filter for day
-merged<-merged%>%
-  mutate(morning = dep_time <1200)%>%
-  mutate(evening = dep_time>=1200)
-
-
-#calculate and store the observed difference in the sample
-observed <- mean(merged$dep_delay[merged$evening==TRUE]) -
-mean(merged$dep_delay[merged$morning==TRUE])
+observed <- mean(fwj$dep_delay[fwj$dep_time<= 1200]) -
+mean(fwj$dep_delay[fwj$dep_time>1200])
 
 #N = number of simulations we will use
 N <- 10^3-1
 
 #sample.size = the number of observations in our sample
-sample.size = nrow(merged)
+sample.size = nrow(fwj)
 
 #group.1.size = the number of observations in the first group
-group.1.size = nrow(merged[merged$evening==TRUE,])
+group.1.size = nrow(fwj[fwj$dep_time<=1200,])
 
 #create a blank vector to store the simulation results
 result <- numeric(N)
@@ -236,13 +229,13 @@ for(i in 1:N)
 
   #calculate and store the difference in
   #mean dep_delay between the index and non-index groups
-  result[i] = mean(merged$dep_delay[index]) - mean(merged$dep_delay[-index])
+  result[i] = mean(fwj$dep_delay[index]) - mean(fwj$dep_delay[-index])
 }
 
 #plot a histogram of the simulated differences
 #add a vertical line at the observed difference
 ggplot(data=tibble(result), mapping = aes(x=result)) +
-  geom_histogram(bins = 50) +
+  geom_histogram() +
   geom_vline(xintercept = observed, color = "red")
 
 #Calculate the p-value
