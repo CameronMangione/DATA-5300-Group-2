@@ -375,8 +375,120 @@ if (pvalue < 0.05) {
   cat("The p-value is", format(pvalue, scientific = FALSE), 
       "- Since this is above 0.05, we fail to reject the null hypothesis.\n")
 }
+```
 
+### Jacob worked on the temperature and wind speed data.
 
+#### Temperature Summary Statistics 
+```{r}
+summary_temp <- merged %>%
+  summarize(mean = mean(temp, na.rm = TRUE),
+            std_dev = sd(temp, na.rm = TRUE),
+            min = min(temp, na.rm = TRUE),
+            max = max(temp, na.rm = TRUE))
+summary_temp
+```
+
+#### Permutation test for relationship between temperature and delays 
+```{r}
+observed <- mean(merged$temp[merged$late == TRUE]) - mean(merged$temp[merged$late == FALSE])
+
+N <- 10^4-1
+
+sample.size = nrow(merged)
+
+group.1.size = nrow(merged[merged$late == TRUE,])
+
+result <- numeric(N)
+
+for (i in 1:N)
+{
+  index = sample(sample.size, size = group.1.size, replace=FALSE)
+  result[i] = mean(merged$temp[index]) - mean(merged$temp[-index])
+}
+
+ggplot(data = tibble(result), aes(x = result))+
+  geom_histogram() + 
+  geom_vline(xintercept = observed, color = "red")
+
+observed
+2*(sum(result >= observed) +1) / (N+1)
+```
+#### Average Departure Delays vs. Temperature Graph
+
+```{r}
+merged <- merged %>%
+  mutate(dep_delay_adj = ifelse(dep_delay > 0, dep_delay, 0))
+
+avg_delay_by_temp <- merged %>%
+  group_by(temp) %>%
+  summarize(avg_delay = mean(dep_delay_adj, na.rm = TRUE))
+
+ggplot(data = avg_delay_by_temp, aes(x = temp, y = avg_delay)) +
+  geom_col(fill = "steelblue") +
+  labs(title = "Average Departure Delay by Temperature",
+       x = "Temperature (F)",
+       y = "Average Delay (minutes)")
+```
+
+#### Wind Speed Summary Statistics 
+
+```{r}
+summary_wind_speed <- merged %>%
+  summarize(mean = mean(wind_speed, na.rm = TRUE),
+            std_dev = sd(wind_speed, na.rm = TRUE),
+            min = min(wind_speed, na.rm = TRUE),
+            max = max(wind_speed, na.rm = TRUE))
+summary_wind_speed
+```
+#### Histogram of distribution of wind speed 
+
+```{r}
+ggplot(data = merged, mapping = aes(x = wind_speed)) +
+  geom_histogram(bins=40, color="white", fill="cornflowerblue")
+```
+
+#### Permutation test for relationship between wind speed and delays 
+```{r}
+observed <- mean(merged$wind_speed[merged$late == TRUE]) - mean(merged$wind_speed[merged$late == FALSE])
+
+N <- 10^4-1
+
+sample.size = nrow(merged)
+
+group.1.size = nrow(merged[merged$late == TRUE,])
+
+result <- numeric(N)
+
+for (i in 1:N)
+{
+  index = sample(sample.size, size = group.1.size, replace=FALSE)
+  result[i] = mean(merged$wind_speed[index]) - mean(merged$wind_speed[-index])
+}
+
+ggplot(data = tibble(result), aes(x = result))+
+  geom_histogram() + 
+  geom_vline(xintercept = observed, color = "red")
+
+observed
+2*(sum(result >= observed) +1) / (N+1)
+```
+
+#### Average Departure Delays vs. Wind Speed Graph
+
+```{r}
+merged <- merged %>%
+  mutate(dep_delay_adj = ifelse(dep_delay > 0, dep_delay, 0))
+
+avg_delay_by_wind_speed <- merged %>%
+  group_by(wind_speed) %>%
+  summarize(avg_delay = mean(dep_delay_adj, na.rm = TRUE))
+
+ggplot(data = avg_delay_by_wind_speed, aes(x = wind_speed, y = avg_delay)) +
+  geom_col(fill = "steelblue") +
+  labs(title = "Average Departure Delay by Wind Speed",
+       x = "Wind Speed (miles per hour)",
+       y = "Average Delay (minutes)")
 ```
 ### Visibility (jack)
 
