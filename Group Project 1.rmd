@@ -202,6 +202,57 @@ ggplot(data = flights_hourly, aes(x = hour, y = dc_percentage)) +
        y = "Percentage of Late Flights")
 ```
 There is an inflection point around noon so we will split the data between morning and evening.
+```{r} 
+### Jack proposal
+
+## Add Morning and Evening label
+merged <- merged %>%
+  mutate(adj_dep_delay = ifelse(merged$dep_delay>0,dep_delay,0)) %>% #adjust early departure to 0 
+  mutate(departureTimeLabel = ifelse(merged$dep_time<= 1200,"Morning Departure","Evening Departure"))
+
+observed <- mean(merged$adj_dep_delay[merged$departureTimeLabel == "Morning Departure"]) -
+mean(merged$adj_dep_delay[merged$departureTimeLabel =="Evening Departure"])
+print(observed)
+#N = number of simulations we will use
+N <- 10^3-1
+
+#sample.size = the number of observations in our sample (Morning+Evening)
+sample.size = nrow(merged)
+
+#group.1.size = the number of observations in the first group
+group.1.size = nrow(merged[merged$departureTimeLabel == "Morning Departure",])
+
+#create a blank vector to store the simulation results
+result <- numeric(N)
+
+#use a for loop to cycle through values of i ranging from 1 to N
+for(i in 1:N)
+{
+  index <- sample(sample.size, size=group.1.size, replace = FALSE)
+
+  #calculate and store the difference in
+  #mean dep_delay between the index and non-index groups
+  result[i] <- mean(merged$adj_dep_delay[index]) - mean(merged$adj_dep_delay[-index])
+}
+
+#plot a histogram of the simulated differences
+#add a vertical line at the observed difference
+ggplot(data=tibble(result), mapping = aes(x=result)) +
+  geom_histogram() +
+  geom_vline(xintercept = observed, color = "red")
+
+#Calculate the p-value
+p_value <- (sum(abs(result) >= abs(observed)) + 1) / (N + 1) ## I used absolute values
+pvalue
+
+if (pvalue <= 0.05) {
+  print("Reject the null hypothesis.")
+} else {
+  print("Fail to reject the null hypothesis.")
+}
+
+```
+
 
 ```{r}
 # time of day
@@ -519,7 +570,7 @@ ggplot(data = avg_delay_by_visibilty, aes(x = factor(visib), y = avg_delay)) +
        y = "Average Delay (minutes)")
 
 ```
-Based on IFR low visibility is less than 3 miles
+Based on IFR less than 3 miles is considered low visibility
 #### Discretionize visibility (low, normal)
 
 ```{r}
@@ -546,6 +597,7 @@ ggplot(data = avg_delay_by_visibility, aes(x = visibilityLabel, y = avg_delay, f
 
 group1 <- merged$dep_delay_adj[merged$visibilityLabel == "Low Visibility"]
 group2 <- merged$dep_delay_adj[merged$visibilityLabel != "Low Visibility"]
+
 pvalue <- perm_test(group1,group2)
 
 
