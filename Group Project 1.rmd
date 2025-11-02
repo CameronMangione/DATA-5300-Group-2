@@ -205,31 +205,15 @@ ggplot(data = flights_hourly, aes(x = hour, y = dc_percentage)) +
 ```
 There is an inflection point around noon so we will split the data between morning and evening.
 ```{r} 
-### Jack proposal
+## Create a morning and evening label, set late variable
+merged<-merged%>%
+  mutate(morning = dep_time <1200)%>%
+  mutate(evening = dep_time>=1200)%>%
+  mutate(adj_dep_delay = ifelse(merged$dep_delay>0,dep_delay,0))
 
-## Add Morning and Evening label
-merged <- merged %>%
-  mutate(adj_dep_delay = ifelse(merged$dep_delay>0,dep_delay,0)) %>% #adjust early departure to 0 
-  mutate(departureTimeLabel = ifelse(merged$dep_time<= 1200,"Morning Departure","Evening Departure"))
-
-## Using common function
-pvalue <- perm_test(
-  merged$adj_dep_delay[merged$departureTimeLabel == "Morning Departure"],
-  merged$adj_dep_delay[merged$departureTimeLabel == "Evening Departure"]
-)
-
-if (pvalue < 0.05) {
-  cat("The p-value is", format(pvalue, scientific = FALSE), 
-      "- Since this is below 0.05, we reject the null hypothesis.\n")
-} else {
-  cat("The p-value is", format(pvalue, scientific = FALSE), 
-      "- Since this is above 0.05, we fail to reject the null hypothesis.\n")
-}
-
-
-### Or not using common function
-observed <- mean(merged$adj_dep_delay[merged$departureTimeLabel == "Morning Departure"]) -
-mean(merged$adj_dep_delay[merged$departureTimeLabel =="Evening Departure"])
+#calculate and store the observed difference in the sample
+observed <- mean(merged$adj_dep_delay[merged$morning==TRUE]) -
+mean(merged$adj_dep_delay[merged$evening==TRUE])
 
 #N = number of simulations we will use
 N <- 10^3-1
@@ -238,7 +222,7 @@ N <- 10^3-1
 sample.size = nrow(merged)
 
 #group.1.size = the number of observations in the first group
-group.1.size = nrow(merged[merged$departureTimeLabel == "Morning Departure",])
+group.1.size = nrow(merged[merged$morning == TRUE,])
 
 #create a blank vector to store the simulation results
 result <- numeric(N)
@@ -262,6 +246,7 @@ ggplot(data=tibble(result), mapping = aes(x=result)) +
 #Calculate the p-value
 pvalue <- (sum(abs(result) >= abs(observed)) + 1) / (N + 1) ## I used absolute values
 
+observed
 pvalue
 
 if (pvalue <= 0.05) {
@@ -269,54 +254,6 @@ if (pvalue <= 0.05) {
 } else {
   print("Fail to reject the null hypothesis.")
 }
-
-```
-
-
-```{r}
-# time of day
-# compare evening vs day
-
- observed <- mean(fwj$dep_delay[fwj$dep_time<= 1200]) -
- mean(fwj$dep_delay[fwj$dep_time>1200])
- 
- #N = number of simulations we will use
- N <- 10^3-1
- 
- #sample.size = the number of observations in our sample
- sample.size = nrow(fwj)
- 
- #group.1.size = the number of observations in the first group
- group.1.size = nrow(fwj[fwj$dep_time<=1200,])
- 
- #create a blank vector to store the simulation results
- result <- numeric(N)
- 
- #use a for loop to cycle through values of i ranging from 1 to N
- for(i in 1:N)
- {
-   index = sample(sample.size, size=group.1.size, replace = FALSE)
- 
-   #calculate and store the difference in
-   #mean dep_delay between the index and non-index groups
-   result[i] = mean(fwj$dep_delay[index]) - mean(fwj$dep_delay[-index])
- }
- 
- #plot a histogram of the simulated differences
- #add a vertical line at the observed difference
- ggplot(data=tibble(result), mapping = aes(x=result)) +
-   geom_histogram() +
-   geom_vline(xintercept = observed, color = "red")
- 
- #Calculate the p-value
- pvalue <-(sum(result >= observed) + 1) / (N + 1)
- pvalue
- 
- if (pvalue <= 0.05) {
-   print("Reject the null hypothesis.")
- } else {
-   print("Fail to reject the null hypothesis.")
- }
 ```
 
 ```{r}
