@@ -1,0 +1,592 @@
+---
+title: "Group Project 1"
+author: "Group 2_Cameron Mangione_Jacob Wilson_JackLichwa_Ahrial Young"
+output: html_document
+date: "2025-10-26"
+---
+
+```{r}
+library(dplyr)
+library(ggplot2)
+library(nycflights13)
+library(readr)
+library(curl)
+library(tidyr)
+library(fivethirtyeight)
+library(tidyverse)
+library(resampledata3)
+library(readxl)
+```
+
+## Initial Data Cleaning + Merging (All)
+#### Our data cleaning consisted of filtering our flights dataframe to only include United Airlines flights, removing all NA values from our weather and flights dataframes, and then conducting an inner join of the flights and weather datasets, based on year, month, day, hour, and origin.
+#### Additionally, we also created a column for late flights, which consisted of departure delays greater than 0 minutes.
+#### We defined a function for some of our permutation tests to run, so the permutation here is a blank permutation test to use throughout our code.
+```{r}
+perm_test <- function(group_one,group_two,n_perm = 10^4-1){
+#two sided perm test calcuation
+#group1, group2: Numeric vectors for the two groups
+#n_perm: Number of permutation iterations
+  
+  #observed mean difference
+  observed <- mean(group_one) - mean(group_two)
+
+  groups_combined <- c(group_one,group_two)
+
+  #sample.size = the number of observations in our sample
+  sample.size <- length(groups_combined)
+
+  #group.1.size = the number of observations in the first group
+  group.1.size = length(group_one)
+
+  #create a blank vector to store the simulation results
+  result <- numeric(n_perm)
+
+  #use a for loop to cycle through values of i ranging from 1 to n_perm
+  for(i in 1:n_perm)
+  {
+    index <- sample(sample.size, size=group.1.size, replace = FALSE)
+
+    result[i] <- mean(groups_combined[index]) - 
+                mean(groups_combined[-index])
+  }
+  
+  plot <- ggplot(data = tibble(result), aes(x = result))+
+    geom_histogram() + 
+    geom_vline(xintercept = observed, color = "red")
+  
+  print(plot) 
+  
+  p_value <- (sum(abs(result) >= abs(observed)) + 1) / (N + 1)
+
+  return (p_value)
+}
+
+```
+
+```{r}
+weather
+```
+```{r}
+flights
+```
+```{r}
+flights_ua <- flights %>%
+  filter(carrier == "UA") %>%
+  filter(!is.na(dep_delay))
+glimpse(flights_ua)
+```
+```{r}
+weather_clean <- weather %>%
+  filter(!is.na(wind_speed)) %>%
+  filter(!is.na(temp)) %>%
+  filter(!is.na(visib)) %>%
+  filter(!is.na(precip))
+glimpse(weather_clean)
+```
+```{r}
+merged <- flights_ua %>%
+  inner_join(weather_clean, by = c("year", "month", "day", "hour", "origin"))
+glimpse(merged)
+```
+```{r}
+merged <- merged %>%
+  mutate(late = dep_delay > 0)
+glimpse(merged)
+```
+
+## Time of Day (Ahrial)
+
+#### We first started by analyzing the data for time of day, and organizing the total day by hours in a day.
+#### Using line plots here for total flights by hour, and a proportion of late flights by hour will help us understand how to proceed with our analysis.
+```{r}
+average_delay_by_hour <- merged %>%
+      group_by(hour) %>%
+      summarize(avg_dep_delay = mean(dep_delay, na.rm = TRUE))
+
+ggplot(average_delay_by_hour, aes(x = hour, y = avg_dep_delay)) +
+      geom_line() +
+      geom_point() +
+      labs(title = "Average Departure Delay by Hour of Day",
+           x = "Hour of Day",
+           y = "Average Departure Delay (minutes)")
+flights_hourly <- merged %>%
+  group_by(hour) %>%
+  summarize(
+    total_flights = n(),
+    dc_count = sum(late),
+    dc_percentage = (dc_count / total_flights) * 100)
+flights_hourly
+
+ggplot(data = flights_hourly, aes(x = hour, y = total_flights)) +
+  geom_line() +
+  labs(title = "Total Flights by Hour",
+       x = "Scheduled Departure Hour",
+       y = "Number of Flights")
+
+ggplot(data = flights_hourly, aes(x = hour, y = dc_percentage)) +
+  geom_line() +
+  labs(title = "Percentage of Late Flights by Hour",
+       x = "Scheduled Departure Hour",
+       y = "Percentage of Late Flights")
+```
+
+#### There is an inflection point around noon so we will split the data between morning and evening.
+
+### Time of Day Permutation Test
+```{r}
+## Create a morning and evening label, set late variable
+merged<-merged%>%
+  mutate(morning = dep_time <1200)%>%
+  mutate(evening = dep_time>=1200)%>%
+  mutate(adj_dep_delay = ifelse(merged$dep_delay>0,dep_delay,0))
+
+#calculate and store the observed difference in the sample
+observed <- mean(merged$adj_dep_delay[merged$evening==TRUE]) -
+mean(merged$adj_dep_delay[merged$morning==TRUE])
+
+#N = number of simulations we will use
+N <- 10^4-1
+
+#sample.size = the number of observations in our sample (Morning+Evening)
+sample.size = nrow(merged)
+
+#group.1.size = the number of observations in the first group
+group.1.size = nrow(merged[merged$evening == TRUE,])
+
+#N = number of simulations we will use
+N <- 10^4-1
+
+#sample.size = the number of observations in our sample (Morning+Evening)
+sample.size = nrow(merged)
+
+#group.1.size = the number of observations in the first group
+group.1.size = nrow(merged[merged$morning == TRUE,])
+
+#create a blank vector to store the simulation results
+result <- numeric(N)
+
+#use a for loop to cycle through values of i ranging from 1 to N
+for(i in 1:N)
+{
+  index <- sample(sample.size, size=group.1.size, replace = FALSE)
+
+  #calculate and store the difference in
+  #mean dep_delay between the index and non-index groups
+  result[i] <- mean(merged$adj_dep_delay[index]) - mean(merged$adj_dep_delay[-index])
+}
+
+#plot a histogram of the simulated differences
+#add a vertical line at the observed difference
+ggplot(data=tibble(result), mapping = aes(x=result)) +
+  geom_histogram() +
+  geom_vline(xintercept = observed, color = "red")
+
+#Calculate the p-value
+pvalue <- (sum(abs(result) >= abs(observed)) + 1) / (N + 1) ## I used absolute values
+
+observed
+pvalue
+
+if (pvalue <= 0.05) {
+  print("Reject the null hypothesis.")
+} else {
+  print("Fail to reject the null hypothesis.")
+}
+```
+
+
+#### Our permutation tests show a statistically significant difference in terms of the relationship between morning and evening for departure delays.
+
+## Time of year (Jack)
+
+#### We will start by analyzing the time of year data to find out if there is a time of the year that is worth investigating.
+Analyzing number of late flights by month
+```{r}
+ggplot(data = merged, aes(x = factor(month), fill = late)) +
+  geom_bar() +
+  labs(title = "Number of Late Flights by Month",
+       x = "Month",
+       y = "Number of Late Flights")
+```
+Average delays for a flight per month
+```{r}
+
+merged <- merged %>%
+  mutate(dep_delay_adj =ifelse(dep_delay > 0, dep_delay, 0))  #adjust dep_delay to 0 
+
+avg_delay_by_month <- merged %>%
+  group_by(month) %>%
+  summarise(avg_delay = mean(dep_delay_adj, na.rm = TRUE))
+
+# Then, plot
+ggplot(data = avg_delay_by_month, aes(x = factor(month), y = avg_delay)) +
+  geom_col(fill = "steelblue") +
+  labs(title = "Average Departure Delay by Month",
+       x = "Month",
+       y = "Average Delay (minutes)")
+```
+
+#### From the above charts, it looks like summer has the most delays. My hypothesis is that summer average delays differ from other seasons.
+#### We will now define our variables for time of year as "Summer Months" and "Other Months".
+
+```{r}
+merged <- merged %>%
+  mutate(summerLabel = ifelse(month %in% c(6, 7, 8), "Summer Months", "Other Months"))
+  
+```
+
+#### With our variables defined, we can now analyze the difference in means between our new variables.
+```{r}
+avg_delay_by_summer_and_other <- merged %>%
+  group_by(summerLabel) %>%
+  summarise(avg_delay = mean(dep_delay_adj, na.rm = TRUE))
+ggplot(data = avg_delay_by_summer_and_other, aes(x = summerLabel, y = avg_delay, fill = summerLabel)) +
+  geom_col() +
+  labs(title = "Average Delay: Summer vs. Other Months",
+       x = "Time of Year",
+       y = "Average Departure Delay (minutes)")
+
+```
+#### Our observed difference of 6.86729 minutes shows a difference that is worth investigating further in a permutation test.
+
+#### Summer late flights permutation test
+```{r}
+# Hypothesis
+# h.0 = flight_delays.summer == flight_delays.other  (no difference between carrier delays)
+# h.alt = flight_delays.winter != flight_delays.other
+
+group1 <- merged$dep_delay_adj[merged$summerLabel == "Summer Months"]
+group2 <- merged$dep_delay_adj[merged$summerLabel != "Summer Months"]
+pvalue <- perm_test(group1,group2)
+
+
+if (pvalue < 0.05) {
+  cat("The p-value is", format(pvalue, scientific = FALSE), 
+      "- Since this is below 0.05, we reject the null hypothesis.\n")
+} else {
+  cat("The p-value is", format(pvalue, scientific = FALSE), 
+      "- Since this is above 0.05, we fail to reject the null hypothesis.\n")
+}
+```
+
+#### Our permutation tests show a statistically significant difference in terms of the relationship between summer months and other months for departure delays.
+
+## Inital Numberical EDA (Cameron)
+```{r}
+ggplot(data = merged, aes(x = temp, y = dep_delay))+
+  geom_point(alpha = 0.7)
+```
+```{r}
+ggplot(data = merged, aes(x = wind_speed, y = dep_delay))+
+  geom_point(alpha = 0.7)
+```
+```{r}
+ggplot(data = merged, aes(x = mean(precip), y = dep_delay))+
+  geom_point(alpha = 0.7)
+```
+```{r}
+ggplot(data = merged, aes(x = visib, y = dep_delay))+
+  geom_point(alpha = 0.7)
+```
+
+## Temperature (Jacob)
+
+#### Temperature Summary Statistics 
+```{r}
+summary_temp <- merged %>%
+  summarize(mean = mean(temp, na.rm = TRUE),
+            std_dev = sd(temp, na.rm = TRUE),
+            min = min(temp, na.rm = TRUE),
+            max = max(temp, na.rm = TRUE))
+summary_temp
+```
+```{r}
+ggplot(data = merged, aes(x = temp, fill = late)) +
+  geom_bar() +
+  labs(title = "Number of Late Flights by Month",
+       x = "Month",
+       y = "Number of Late Flights")
+```
+
+#### Average Departure Delays vs. Temperature Graph
+```{r}
+merged <- merged %>%
+  mutate(dep_delay_adj = ifelse(dep_delay > 0, dep_delay, 0))
+
+avg_delay_by_temp <- merged %>%
+  group_by(temp) %>%
+  summarize(avg_delay = mean(dep_delay_adj, na.rm = TRUE))
+
+ggplot(data = avg_delay_by_temp, aes(x = temp, y = avg_delay)) +
+  geom_col(fill = "steelblue") +
+  labs(title = "Average Departure Delay by Temperature",
+       x = "Temperature (F)",
+       y = "Average Delay (minutes)")
+```
+
+#### Overall, temperature shows a mostly uniform distribution. In the first barplot, it looks like there may be significant departure delay data around the 75+ degrees range. The second barplot also showed some extreme departure delays between 40 degrees and 60 degrees. We will conduct a permutation test to see if this relationship is significant based on our initial exploratory data analysis.
+
+#### Permutation test for relationship between temperature and delays 
+```{r}
+observed <- mean(merged$temp[merged$late == TRUE]) - mean(merged$temp[merged$late == FALSE])
+
+N <- 10^4-1
+
+sample.size = nrow(merged)
+
+group.1.size = nrow(merged[merged$late == TRUE,])
+
+result <- numeric(N)
+
+for (i in 1:N)
+{
+  index = sample(sample.size, size = group.1.size, replace=FALSE)
+  result[i] = mean(merged$temp[index]) - mean(merged$temp[-index])
+}
+
+ggplot(data = tibble(result), aes(x = result))+
+  geom_histogram() + 
+  geom_vline(xintercept = observed, color = "red")
+
+observed
+2*(sum(result >= observed) +1) / (N+1)
+```
+
+#### Our permutation tests show a statistically significant difference in terms of the relationship between temperature and departure delays.
+
+## Wind Speed (Jacob)
+
+#### Wind Speed Summary Statistics 
+
+```{r}
+summary_wind_speed <- merged %>%
+  summarize(mean = mean(wind_speed, na.rm = TRUE),
+            std_dev = sd(wind_speed, na.rm = TRUE),
+            min = min(wind_speed, na.rm = TRUE),
+            max = max(wind_speed, na.rm = TRUE))
+summary_wind_speed
+```
+#### Histogram of distribution of wind speed 
+
+```{r}
+ggplot(data = merged, mapping = aes(x = wind_speed)) +
+  geom_histogram(bins=40, color="white", fill="steelblue")
+```
+
+#### The initial histogram shows some skew to the right with many of the values falling between 6 and 8 miles per hour, with another jump around 12 miles per hour.
+
+#### We will also use a barplot to examine the average delays compared to wind speed.
+#### Average Departure Delays vs. Wind Speed Graph
+```{r}
+merged <- merged %>%
+  mutate(dep_delay_adj = ifelse(dep_delay > 0, dep_delay, 0))
+
+avg_delay_by_wind_speed <- merged %>%
+  group_by(wind_speed) %>%
+  summarize(avg_delay = mean(dep_delay_adj, na.rm = TRUE))
+
+ggplot(data = avg_delay_by_wind_speed, aes(x = wind_speed, y = avg_delay)) +
+  geom_col(fill = "steelblue") +
+  labs(title = "Average Departure Delay by Wind Speed",
+       x = "Wind Speed (miles per hour)",
+       y = "Average Delay (minutes)")
+```
+#### This relationship looks to be fairly uniform, with a spike in delays around 35 mph, and some outlier data around 39 mph and 40+ mph. These spikes in the data and the outlier data make conducting a permutation test worthwhile.
+
+#### Permutation test for relationship between wind speed and delays 
+```{r}
+observed <- mean(merged$wind_speed[merged$late == TRUE]) - mean(merged$wind_speed[merged$late == FALSE])
+
+N <- 10^4-1
+
+sample.size = nrow(merged)
+
+group.1.size = nrow(merged[merged$late == TRUE,])
+
+result <- numeric(N)
+
+for (i in 1:N)
+{
+  index = sample(sample.size, size = group.1.size, replace=FALSE)
+  result[i] = mean(merged$wind_speed[index]) - mean(merged$wind_speed[-index])
+}
+
+ggplot(data = tibble(result), aes(x = result))+
+  geom_histogram() + 
+  geom_vline(xintercept = observed, color = "red")
+
+observed
+2*(sum(result >= observed) +1) / (N+1)
+```
+
+#### Our permutation tests show a statistically significant difference in terms of the relationship between wind speed and departure delays.
+
+## Precipitation (Cameron)
+
+#### Our exploratory analysis consisted of analyzing the differences in the dataset of all of the days of the year versus only days of precipitation (precip >0). To do so, we need to mkae a new dataset that only consists of days with precipitation.
+
+```{r}
+merged_precip <- merged %>%
+  filter(precip > 0)
+glimpse(merged_precip)
+```
+
+```{r}
+ggplot(data = merged, aes(x = precip, fill = late)) +
+  geom_bar() +
+  labs(title = "Number of Late Flights by Precipitation",
+       x = "Precipitation",
+       y = "Number of Late Flights")
+```
+
+```{r}
+ggplot(data = merged_precip, aes(x = precip, fill = late)) +
+  geom_bar() +
+  labs(title = "Number of Late Flights by Precipitation",
+       x = "Precipitation",
+       y = "Number of Late Flights")
+```
+
+#### Initially, we can see that a majority of our dataset has days of no precipitation, and that at first glance, there seems to be fewer delays on days with no precipitation.
+#### By breaking down our data to days with precipitation only, we can see that there is some more variance in delays that are happeningthat are worth looking into further.
+
+```{r}
+avg_delay_by_precip <- merged %>%
+  group_by(precip) %>%
+  summarise(avg_delay = mean(dep_delay_adj, na.rm = TRUE))
+ggplot(data = avg_delay_by_precip, aes(x = precip, y = avg_delay, fill = precip)) +
+  geom_col() +
+  labs(title = "Average Delay: Precipitation",
+       x = "Precipitation",
+       y = "Average Departure Delay (minutes)")
+```
+#### This bar graph also showsthat there are some extreme delays in certain amounts of precipitation that we can explore further for statistical significance in a permutation test.
+
+#### Precipitation only days permutation test.
+```{r}
+observed <- mean(merged_precip$precip[merged_precip$late == TRUE]) - mean(merged_precip$precip[merged_precip$late == FALSE])
+
+N <- 10^4-1
+
+sample.size = nrow(merged_precip)
+
+group.1.size = nrow(merged_precip[merged_precip$late == TRUE,])
+
+result <- numeric(N)
+
+for (i in 1:N)
+{
+  index = sample(sample.size, size = group.1.size, replace=FALSE)
+  result[i] = mean(merged_precip$precip[index]) - mean(merged_precip$precip[-index])
+}
+
+ggplot(data = tibble(result), aes(x = result))+
+  geom_histogram() + 
+  geom_vline(xintercept = observed, color = "red")
+
+observed
+2*(sum(result >= observed) +1) / (N+1)
+```
+
+#### All days precipitation permutation test.
+```{r}
+observed <- mean(merged$precip[merged$late == TRUE]) - mean(merged$precip[merged$late == FALSE])
+
+N <- 10^4-1
+
+sample.size = nrow(merged)
+
+group.1.size = nrow(merged[merged$late == TRUE,])
+
+result <- numeric(N)
+
+for (i in 1:N)
+{
+  index = sample(sample.size, size = group.1.size, replace=FALSE)
+  result[i] = mean(merged$precip[index]) - mean(merged$precip[-index])
+}
+
+ggplot(data = tibble(result), aes(x = result))+
+  geom_histogram() + 
+  geom_vline(xintercept = observed, color = "red")
+
+observed
+2*(sum(result >= observed) +1) / (N+1)
+```
+
+#### Our permutation tests show a statistically significant difference in both all days and only precipitation days compared to departure delay.
+
+## Visibility (jack)
+
+#### We will start by analyzing the relationship between visbility and late departure delays through a bar graph.
+
+```{r}
+ggplot(data = merged, aes(x = visib, fill = late)) +
+  geom_bar() +
+  labs(title = "Number of Late Flights by visiblity",
+       x = "Visibility (Miles)",
+       y = "Number of Late Flights")
+```
+
+#### The number of departure delays in terms of visbility seems to be pretty evenly split, so we will need to investigate this further.
+
+```{r}
+merged <- merged %>%
+  mutate(dep_delay_adj =ifelse(dep_delay > 0, dep_delay, 0))  #adjust dep_delay to 0 when no delay 
+
+avg_delay_by_visibilty <- merged %>%
+  group_by(visib) %>%
+  summarise(avg_delay = mean(dep_delay_adj, na.rm = TRUE))
+
+# Then, plot
+ggplot(data = avg_delay_by_visibilty, aes(x = factor(visib), y = avg_delay)) +
+  geom_col(fill = "steelblue") +
+  labs(title = "Average Departure Delay by Visibility (Miles)",
+       x = "Visibility (Miles)",
+       y = "Average Delay (minutes)")
+```
+
+#### Our vaiables will be defined as low visbility being less than 3 miles and normal visiblity being above or equal to 3 miles.
+```{r}
+merged <- merged %>%
+  mutate(visibilityLabel = ifelse(visib <=3, "Low Visibility", "Normal Visibility"))
+```
+
+```{r}
+avg_delay_by_visibility <- merged %>%
+  group_by(visibilityLabel) %>%
+  summarise(avg_delay = mean(dep_delay_adj, na.rm = TRUE))
+avg_delay_by_visibility
+ggplot(data = avg_delay_by_visibility, aes(x = visibilityLabel, y = avg_delay, fill = visibilityLabel)) +
+  geom_col() +
+  labs(title = "Average Delay: Low Visibility vs Normal Visibility",
+       x = "Visibility",
+       y = "Average Departure Delay (minutes)")
+
+```
+#### The observed difference in means being 5.82023 for low visibility vs. normal visbility gives us justification for looking into a permutation test.
+
+#### Visibility flights permutation test
+```{r}
+# Hypothesis
+# h.0 = flight_delays.low_visibility == flight_delays.normal_visibility  (no difference between carrier delays)
+# h.alt = flight_delays.low_visibility != flight_delays.normal_visibility
+
+group1 <- merged$dep_delay_adj[merged$visibilityLabel == "Low Visibility"]
+group2 <- merged$dep_delay_adj[merged$visibilityLabel != "Low Visibility"]
+
+pvalue <- perm_test(group1,group2)
+
+
+if (pvalue < 0.05) {
+  cat("The p-value is", format(pvalue, scientific = FALSE), 
+      "- Since this is below 0.05, we reject the null hypothesis.\n")
+} else {
+  cat("The p-value is", format(pvalue, scientific = FALSE), 
+      "- Since this is above 0.05, we fail to reject the null hypothesis.\n")
+}
+
+
+```
+#### Our permutation test shows a statistically significant difference between low and normal visbility.
