@@ -212,8 +212,17 @@ merged<-merged%>%
   mutate(adj_dep_delay = ifelse(merged$dep_delay>0,dep_delay,0))
 
 #calculate and store the observed difference in the sample
-observed <- mean(merged$adj_dep_delay[merged$morning==TRUE]) -
-mean(merged$adj_dep_delay[merged$evening==TRUE])
+observed <- mean(merged$adj_dep_delay[merged$evening==TRUE]) -
+mean(merged$adj_dep_delay[merged$morning==TRUE])
+
+#N = number of simulations we will use
+N <- 10^3-1
+
+#sample.size = the number of observations in our sample (Morning+Evening)
+sample.size = nrow(merged)
+
+#group.1.size = the number of observations in the first group
+group.1.size = nrow(merged[merged$evening == TRUE,])
 
 #N = number of simulations we will use
 N <- 10^3-1
