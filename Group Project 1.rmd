@@ -47,9 +47,11 @@ perm_test <- function(group_one,group_two,n_perm = 10^4-1){
                 mean(groups_combined[-index])
   }
   
-  ggplot(data = tibble(result), aes(x = result))+
+  plot <- ggplot(data = tibble(result), aes(x = result))+
     geom_histogram() + 
     geom_vline(xintercept = observed, color = "red")
+  
+  print(plot) 
   
   p_value <- (sum(abs(result) >= abs(observed)) + 1) / (N + 1)
 
@@ -187,7 +189,7 @@ flights_hourly <- merged %>%
     total_flights = n(),
     dc_count = sum(late),
     dc_percentage = (dc_count / total_flights) * 100)
-flights_hourly_dc
+flights_hourly
 
 ggplot(data = flights_hourly, aes(x = hour, y = total_flights)) +
   geom_line() +
@@ -210,9 +212,25 @@ merged <- merged %>%
   mutate(adj_dep_delay = ifelse(merged$dep_delay>0,dep_delay,0)) %>% #adjust early departure to 0 
   mutate(departureTimeLabel = ifelse(merged$dep_time<= 1200,"Morning Departure","Evening Departure"))
 
+## Using common function
+pvalue <- perm_test(
+  merged$adj_dep_delay[merged$departureTimeLabel == "Morning Departure"],
+  merged$adj_dep_delay[merged$departureTimeLabel == "Evening Departure"]
+)
+
+if (pvalue < 0.05) {
+  cat("The p-value is", format(pvalue, scientific = FALSE), 
+      "- Since this is below 0.05, we reject the null hypothesis.\n")
+} else {
+  cat("The p-value is", format(pvalue, scientific = FALSE), 
+      "- Since this is above 0.05, we fail to reject the null hypothesis.\n")
+}
+
+
+### Or not using common function
 observed <- mean(merged$adj_dep_delay[merged$departureTimeLabel == "Morning Departure"]) -
 mean(merged$adj_dep_delay[merged$departureTimeLabel =="Evening Departure"])
-print(observed)
+
 #N = number of simulations we will use
 N <- 10^3-1
 
@@ -242,7 +260,8 @@ ggplot(data=tibble(result), mapping = aes(x=result)) +
   geom_vline(xintercept = observed, color = "red")
 
 #Calculate the p-value
-p_value <- (sum(abs(result) >= abs(observed)) + 1) / (N + 1) ## I used absolute values
+pvalue <- (sum(abs(result) >= abs(observed)) + 1) / (N + 1) ## I used absolute values
+
 pvalue
 
 if (pvalue <= 0.05) {
@@ -258,46 +277,46 @@ if (pvalue <= 0.05) {
 # time of day
 # compare evening vs day
 
-observed <- mean(fwj$dep_delay[fwj$dep_time<= 1200]) -
-mean(fwj$dep_delay[fwj$dep_time>1200])
-
-#N = number of simulations we will use
-N <- 10^3-1
-
-#sample.size = the number of observations in our sample
-sample.size = nrow(fwj)
-
-#group.1.size = the number of observations in the first group
-group.1.size = nrow(fwj[fwj$dep_time<=1200,])
-
-#create a blank vector to store the simulation results
-result <- numeric(N)
-
-#use a for loop to cycle through values of i ranging from 1 to N
-for(i in 1:N)
-{
-  index = sample(sample.size, size=group.1.size, replace = FALSE)
-
-  #calculate and store the difference in
-  #mean dep_delay between the index and non-index groups
-  result[i] = mean(fwj$dep_delay[index]) - mean(fwj$dep_delay[-index])
-}
-
-#plot a histogram of the simulated differences
-#add a vertical line at the observed difference
-ggplot(data=tibble(result), mapping = aes(x=result)) +
-  geom_histogram() +
-  geom_vline(xintercept = observed, color = "red")
-
-#Calculate the p-value
-pvalue <-(sum(result >= observed) + 1) / (N + 1)
-pvalue
-
-if (pvalue <= 0.05) {
-  print("Reject the null hypothesis.")
-} else {
-  print("Fail to reject the null hypothesis.")
-}
+ observed <- mean(fwj$dep_delay[fwj$dep_time<= 1200]) -
+ mean(fwj$dep_delay[fwj$dep_time>1200])
+ 
+ #N = number of simulations we will use
+ N <- 10^3-1
+ 
+ #sample.size = the number of observations in our sample
+ sample.size = nrow(fwj)
+ 
+ #group.1.size = the number of observations in the first group
+ group.1.size = nrow(fwj[fwj$dep_time<=1200,])
+ 
+ #create a blank vector to store the simulation results
+ result <- numeric(N)
+ 
+ #use a for loop to cycle through values of i ranging from 1 to N
+ for(i in 1:N)
+ {
+   index = sample(sample.size, size=group.1.size, replace = FALSE)
+ 
+   #calculate and store the difference in
+   #mean dep_delay between the index and non-index groups
+   result[i] = mean(fwj$dep_delay[index]) - mean(fwj$dep_delay[-index])
+ }
+ 
+ #plot a histogram of the simulated differences
+ #add a vertical line at the observed difference
+ ggplot(data=tibble(result), mapping = aes(x=result)) +
+   geom_histogram() +
+   geom_vline(xintercept = observed, color = "red")
+ 
+ #Calculate the p-value
+ pvalue <-(sum(result >= observed) + 1) / (N + 1)
+ pvalue
+ 
+ if (pvalue <= 0.05) {
+   print("Reject the null hypothesis.")
+ } else {
+   print("Fail to reject the null hypothesis.")
+ }
 ```
 
 ```{r}
