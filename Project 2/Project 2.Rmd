@@ -22,3 +22,112 @@ united_flights <- flights %>%
 united_flights
 ```
 
+### Jacob (five most common destinations)
+
+```{r}
+by_destination <- united_flights %>% 
+  group_by(dest) %>% 
+  summarize(count = n()) %>%
+  arrange(desc(count))
+by_destination
+```
+
+```{r}
+top_five_dest <- united_flights %>%
+  filter(dest == "IAH" | dest == "ORD" | dest == "SFO" | dest == "LAX" | dest == "DEN")
+```
+
+```{r}
+top_five_dest %>%
+  group_by(dest) %>%
+  summarize(mean = mean(net_gain)) %>%
+  arrange(desc(mean))
+```
+
+```{r}
+ggplot(data = top_five_dest, aes(x = dest, y = net_gain))+
+  geom_point(color = "steelblue", alpha = 0.7) +
+  labs(title = "Destination vs. Gain",
+       x = "Destination",
+       y = "Gain")
+```
+
+```{r}
+ggplot(data = top_five_dest, aes(x = dest, y = net_gain)) +
+  geom_col(fill = "steelblue") +
+  labs(title = "Average Net Gain by Destination",
+       x = "Destination Airport",
+       y = "Net Gain")
+```
+
+```{r}
+ggplot(data = top_five_dest, mapping = aes(x = net_gain)) +
+  geom_histogram(breaks=seq(-60,60, by=5), color="white", fill="steelblue") +
+  facet_wrap(~ dest)
+```
+
+**Hypothesis testing**:  Difference in average net gain between airports 
+
+```{r}
+united_iah_ord <- united_flights %>%
+  filter(dest == "IAH" | dest == "ORD")
+united_iah_sfo <- united_flights %>%
+  filter(dest == "IAH" | dest == "SFO")
+united_iah_lax <- united_flights %>% 
+  filter(dest == "IAH" | dest == "LAX")
+united_iah_den <- united_flights %>%
+  filter(dest == "IAH" | dest == "DEN")
+united_ord_sfo <- united_flights %>%
+  filter(dest == "ORD" | dest == "SFO")
+united_ord_lax <- united_flights %>%
+  filter(dest == "ORD" | dest == "LAX")
+united_ord_den <- united_flights %>%
+  filter(dest == "ORD" | dest == "DEN")
+united_sfo_lax <- united_flights %>%
+  filter(dest == "SFO" | dest == "LAX")
+united_sfo_den <- united_flights %>%
+  filter(dest == "SFO" | dest == "DEN")
+united_lax_den <- united_flights %>%
+  filter(dest == "LAX" | dest == "DEN")
+```
+
+```{r}
+t.test(net_gain~dest, data = united_iah_ord, conf.level = .95)
+```
+
+```{r}
+t.test(net_gain~dest, data = united_iah_sfo, conf.level = .95)
+```
+
+```{r}
+t.test(net_gain~dest, data = united_iah_lax, conf.level = .95)
+```
+
+```{r}
+t.test(net_gain~dest, data = united_iah_den, conf.level = .95)
+```
+
+```{r}
+t.test(net_gain~dest, data = united_ord_sfo, conf.level = .95)
+```
+
+```{r}
+t.test(net_gain~dest, data = united_ord_lax, conf.level = .95)
+```
+
+```{r}
+t.test(net_gain~dest, data = united_ord_den, conf.level = .95)
+```
+
+```{r}
+t.test(net_gain~dest, data = united_sfo_lax, conf.level = .95)
+```
+
+```{r}
+t.test(net_gain~dest, data = united_sfo_den, conf.level = .95)
+```
+
+```{r}
+t.test(net_gain~dest, data = united_lax_den, conf.level = .95)
+```
+
