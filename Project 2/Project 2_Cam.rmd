@@ -1,0 +1,120 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+#Load libraries
+library(dplyr)
+library(ggplot2)
+library(nycflights13)
+library(resampledata3)
+library(tidyverse)
+```
+
+```{r}
+glimpse(flights)
+```
+```{r}
+united_flights <- flights %>%
+  filter(carrier == "UA")%>%
+  filter(!is.na(dep_delay)) %>%
+  filter(!is.na(arr_delay)) %>%
+  filter(!is.na(air_time)) %>%
+  mutate(gain = dep_delay - arr_delay)
+glimpse(united_flights)
+```
+
+```{r}
+late <- united_flights %>%
+  filter(dep_delay >0) %>%
+  filter(!is.na(dep_delay))
+glimpse(late)
+```
+
+```{r}
+very_late <- united_flights %>%
+  filter(dep_delay >30) %>%
+  filter(!is.na(dep_delay))
+glimpse(very_late)
+```
+
+```{r}
+united_flights <- united_flights %>%
+  mutate(late = dep_delay >0) %>% 
+  mutate(very_late = dep_delay >30)
+glimpse(united_flights)
+```
+
+### Departure Delay Analysis(Cameron)
+
+### Our exploratory data analysis will start with looking at a summary of arrival delay, departure delay, and net gain.
+
+```{r}
+summary(united_flights$arr_delay)
+```
+
+### Regarding arrival delay, we see that the median is -6, showing that the 50th percentile for arrival delay is showing early arrivals.
+### Arrival delays show significant outliers in both directions.
+
+```{r}
+summary(united_flights$dep_delay)
+```
+
+### Regarding departure delay, we see that the median is 0, showing that the 50th percentile for departure delay cosists of flights leaving on time.
+### Departure delays show significant outliers in the maximum, with a minimum that is much closer to the median and mean.
+
+```{r}
+summary(united_flights$gain)
+```
+
+### Gain gets interpreted differently than the other two facotrs here. Flights have a median of +10 minutes, meaning the 50th percentile of flights are arriving 10 minutes quicker than expexted.
+### The range between the minimum and the median is quite significant, with one flight losing 2 hours and 45 minutes overall.
+### There could also be some outliers at the maximum since there is a 64 minute difference between the minimum and the maximum.
+
+
+```{r}
+ggplot(data = united_flights, mapping = aes(x = arr_delay)) +
+  geom_histogram(bins=40, color="white", fill="steelblue")
+```
+
+```{r}
+ggplot(data = united_flights, mapping = aes(x = dep_delay)) +
+  geom_histogram(bins=40, color="white", fill="steelblue")
+```
+
+
+```{r}
+ggplot(data = united_flights, mapping = aes(x = gain)) +
+  geom_histogram(bins=40, color="white", fill="steelblue")
+```
+
+```{r}
+ggplot(data=united_flights, aes(x=late, y=gain))+
+geom_boxplot(color="steelblue", fill="white")
+```
+
+```{r}
+ggplot(data=united_flights, aes(x=very_late, y=gain))+
+geom_boxplot(color="steelblue", fill="white")
+```
+
+
+
+### Late Hypothesis Test
+### µ1 - µ2 = 0
+### µ1 - µ2 != 0
+
+```{r}
+t.test(gain~late,united_flights, conf.level= 0.95)
+```
+
+### Very Late Hypothesis Test
+### µ1 - µ2 = 0
+### µ1 - µ2 != 0
+
+```{r}
+t.test(gain~very_late,united_flights, conf.level= 0.95)
+```
+
+
