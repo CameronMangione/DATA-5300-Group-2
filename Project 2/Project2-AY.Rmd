@@ -1,0 +1,238 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+#Load libraries
+library(dplyr)
+library(ggplot2)
+library(nycflights13)
+library(resampledata3)
+library(tidyverse)
+```
+
+```{r}
+flights
+```
+```{r}
+united_flights <- flights %>%
+  filter(carrier == "UA")%>%
+  mutate(gain = dep_delay - arr_delay) %>%
+  mutate(gain_per_hour = gain/(air_time/60)) %>%
+  mutate(late = ifelse(dep_delay > 0, TRUE, FALSE)) %>%
+  mutate(very_late = ifelse(dep_delay > 30, TRUE, FALSE))
+united_flights
+
+
+```
+--------------------
+##QUESTION 4 (Ahrial Young)
+
+##Does the average gain per hour differ for longer flights versus shorter flights?
+- find short vs long flights (is this about distance or time duration of the flight or both? Both. Used Wikipedia to draw distinctions)
+
+Short by time <180 (3 hours)
+Short by distance <700
+-------------------------
+# EDA
+```{r}
+by_dest <- group_by(united_flights, dest)
+gain <- summarise(by_dest,
+  count = n(),
+  distance = mean(distance, na.rm = TRUE),
+  gain_per_hour = mean(gain_per_hour, na.rm = TRUE)
+)
+
+#filter out Honolulu because it is a huge outlier (distance is 5000, next closest is closer to 3000 miles)
+gain <- filter(gain, count > 20, dest != "HNL")
+
+ggplot(data = gain, mapping = aes(x = distance, y = gain_per_hour)) +
+  geom_point(aes(size = count), alpha = 1/3) +
+  geom_smooth(se = FALSE)+
+  labs(title = "Flight Length (Distance) vs. Gain Per Hour",
+       x = "Length (Distance)",
+       y = "Gain")
+
+```
+```{r}
+long_distance_flights <- filter(united_flights, distance >= 3000)
+nrow(long_distance_flights) 
+long_distance_flights <- filter(united_flights, distance >= 3000, dest!= 'HNL')
+nrow(long_distance_flights) 
+
+```
+This shows us that most of the long distance flights are to Honolulu. But the next furthest flight is less than 3000 miles away, so we are safe to filter out Honolulu.
+
+```{r}
+by_dest <- group_by(united_flights, dest)
+gain_air <- summarise(by_dest,
+  count = n(),
+  air_time = mean(air_time, na.rm = TRUE),
+  gain_per_hour = mean(gain_per_hour, na.rm = TRUE)
+)
+# filter out Honolulu because it is an outlier and twice as far away (airtime was 600)
+gain_air <- filter(gain_air, count > 20, dest != "HNL")
+
+ggplot(data = gain_air, mapping = aes(x = air_time, y = gain_per_hour)) +
+  geom_point(aes(size = count), alpha = 1/3) +
+  geom_smooth(se = FALSE)+
+  labs(title = "Flight Length (Time) vs. Gain",
+       x = "Legnth (Time)",
+       y = "Gain")
+```
+
+## Look at Averages and Medians to get an idea of spread for both variables
+```{r}
+# Average gain for short flights (time)
+united_flights %>%
+  filter(air_time < 180) %>%
+  summarise(avg_time_gain = mean(gain_per_hour, na.rm = TRUE),
+            median_time_gain = median(gain_per_hour, na.rm = TRUE))
+
+# Average gain for short flights (distance)
+united_flights %>%
+  filter(distance < 700, dest!='HNL') %>%
+  summarise(avg_dist_gain = mean(gain_per_hour, na.rm = TRUE),
+            median_dist_gain = median(gain_per_hour, na.rm = TRUE))
+
+```
+Mean and median are roughly equal for both variables (time and distance).
+
+## Set time and distance flight variable
+
+```{r}
+time_flights <-united_flights %>% 
+  filter(!is.na(gain_per_hour)) %>%
+  filter(dest!= 'HNL')%>%
+  mutate(short_time = air_time <= 180)%>%
+  mutate(long_time = air_time>180)
+
+dist_flights <-united_flights %>% 
+  filter(!is.na(gain_per_hour)) %>%
+  filter(dest!= 'HNL')%>%
+  mutate(short_dist = distance <=700)%>%
+  mutate(long_dist = distance >700)
+```
+
+##Histogram
+```{r}
+ggplot(data=time_flights, aes(x=short_time, y=gain_per_hour))+
+geom_boxplot(color="steelblue", fill="white")+
+labs(title = "Flight Length (Time) vs. Gain Histogram",
+       x = "Length (Time)",
+       y = "Gain")
+
+ggplot(data=dist_flights, aes(x=short_dist, y=gain_per_hour))+
+geom_boxplot(color="steelblue", fill="white")+
+labs(title = "Flight Length (Distance) vs. Gain Histogram",
+       x = "Length (Distance)",
+       y = "Gain")
+```
+Flight Length (Time): The mean gain for short flights (TRUE) is higher than the mean gain for long flights (the mean bar in the middle of the box plot is higher). And the variance is greater for short flights since the white box is larger overall. Additionally, short flights have more outliers and the outliers are more extreme overall with values extending from -100 to 75 compared to long flights where outliers only extend from -50 to 25.
+
+Flight Length (Distance): The mean gain for short flights (TRUE) is higher than the mean gain for long flights (the mean bar in the middle of the box plot is higher). And the variance is greater for short flights since the white box is larger overall. Additionally, short flights have more outliers and the outliers are more extreme overall with values extending from -150 to 75 compared to long flights where outliers only extend from -75 to 25.
+
+
+## Quantitative Summary Stats
+```{r}
+# timed flights
+# summary stats for short by time
+time_flights%>%
+  filter(short_time == TRUE) %>%
+  summarise(
+    mean_short_time = mean(gain_per_hour),
+    median_short_time = median(gain_per_hour),
+    sd_short_time = sd(gain_per_hour),
+    min_short_time = min(gain_per_hour),
+    max_short_time = max(gain_per_hour),
+    n_short_time = n() # Count the number of observations in the filtered data
+  )
+# timed flights
+# summary stats by long
+time_flights%>%
+  filter(long_time == TRUE) %>%
+  summarise(
+    mean_long_time = mean(gain_per_hour),
+    median_long_time = median(gain_per_hour),
+    sd_long_time = sd(gain_per_hour),
+    min_long_time = min(gain_per_hour),
+    max_long_time = max(gain_per_hour),
+    n_long_time = n() # Count the number of observations in the filtered data
+  )
+
+# distance flights
+# summary stats for short by time
+time_flights%>%
+  filter(short_time == TRUE) %>%
+  summarise(
+    mean_short_dist = mean(gain_per_hour),
+    median_short_dist = median(gain_per_hour),
+    sd_short_dist = sd(gain_per_hour),
+    min_short_dist = min(gain_per_hour),
+    max_short_dist = max(gain_per_hour),
+    n_short_dist = n() # Count the number of observations in the filtered data
+  )
+# distance flights
+# summary stats by long
+dist_flights%>%
+  filter(short_dist == FALSE) %>%
+  summarise(
+    mean_long_dist = mean(gain_per_hour),
+    median_long_dist = median(gain_per_hour),
+    sd_long_dist = sd(gain_per_hour),
+    min_long_diste = min(gain_per_hour),
+    max_long_dist = max(gain_per_hour),
+    n_long_dist = n() # Count the number of observations in the filtered data
+  )
+```
+
+
+## Distribution of Gain Per Hour Color Coded By Flight Length
+```{r}
+# set colors
+cols <- c("steelblue","grey")
+
+## Timed flights
+# and assigning colors based on col1
+time_flights_graph <- time_flights%>%
+  mutate(long_time = air_time > 180)
+ggplot(time_flights_graph,aes(air_time,gain_per_hour,colour=short_time))+geom_point()+ 
+
+  # assigning customised colours to the plot 
+  scale_color_manual(values = cols)+
+  labs(title = "Distribution of Air Time", x = "Air Time", y = "Gain Per Hour", color = "Flight Length")
+```
+```{r}
+# set colors
+cols <- c("steelblue","grey")
+
+## Distance flights
+# and assigning colors based on col1
+distance_flights_graph <- dist_flights%>%
+  mutate(long_time = distance > 700)
+ggplot(distance_flights_graph,aes(distance,gain_per_hour,colour=short_dist))+geom_point()+ 
+
+  # assigning customised colours to the plot 
+  scale_color_manual(values = cols)+
+  labs(title = "Distribution of Distance", x = "Distance", y = "Gain Per Hour", color = "Flight Distance")
+```
+
+# Ttests
+
+```{r}
+t.test(gain_per_hour ~ short_time, data= time_flights, conf.level = .95)
+```
+Interpretation: - t stat = a difference in means, does it mean there is a 52 min difference in the short and long flights?
+pval is less than 0.05 whch indicates a signifcant difference.
+CI does not include 0 which reinforces signifcant difference.
+mean group 1 (short): is 1.8 and group 2 (late) is 5.86
+Short flights are gaining less and longer flights are gaining more on average.
+
+```{r}
+t.test(gain_per_hour ~ short_dist, data= dist_flights, conf.level = .95)
+```
+Interpretation: - t stat  means that there is a 35 minute gain for long distance flights
+pval is less than 0.05 which indicates a signifcant difference.
+CI does not include 0 which reinforces significant difference.
+Short distance is gaining 2.79 minute per hour and long distance is gaining 11.9 minutes per hour
