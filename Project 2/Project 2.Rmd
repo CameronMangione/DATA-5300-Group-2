@@ -73,6 +73,11 @@ ggplot(data = top_five_dest, mapping = aes(x = net_gain)) +
        y = "Number of Flights")
 ```
 
+```{r}
+ggplot(data=top_five_dest, aes(x=dest, y=net_gain))+
+geom_boxplot(color="steelblue", fill="white")
+```
+
 **Hypothesis testing**:  Difference in average net gain between airports 
 
 ```{r}
@@ -335,6 +340,7 @@ plot_barplot <- function(props, names = NULL, title = NULL, ylab = "Proportion")
           ylab = ylab)
 }
 ```
+
 
 
 
