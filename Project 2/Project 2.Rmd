@@ -67,7 +67,10 @@ ggplot(data = top_five_dest, aes(x = dest, y = net_gain)) +
 ```{r}
 ggplot(data = top_five_dest, mapping = aes(x = net_gain)) +
   geom_histogram(breaks=seq(-60,60, by=5), color="white", fill="steelblue") +
-  facet_wrap(~ dest)
+  facet_wrap(~ dest)   +
+  labs(title = "Distributions of Gain by Destination",
+       x = "Gain (minutes)",
+       y = "Number of Flights")
 ```
 
 **Hypothesis testing**:  Difference in average net gain between airports 
@@ -332,5 +335,6 @@ plot_barplot <- function(props, names = NULL, title = NULL, ylab = "Proportion")
           ylab = ylab)
 }
 ```
+
 
 
