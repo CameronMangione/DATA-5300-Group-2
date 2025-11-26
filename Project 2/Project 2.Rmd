@@ -142,44 +142,107 @@ Another common measure of interest, in addition to total gain, is the gain relat
 ```{r}
 summary(united_flights)
 
-```
-```{r}
-
-plot_hist(united_flights,'gain_per_hour','United Airlines flights gain per hour distribution (minutes)', bins=50)
-
-plot_qq(united_flights,'gain_per_hour','United Airlines flights gain per hour Q-Q plot (minutes)')
-```
-Summary: Data strongly left skewed with majority of flights being on time.
-
-```{r}
-
-plot_hist(united_flights,'dep_delay','United Airlines flights departure delay distribution (minutes)',bins=50)
-
-plot_qq(united_flights,'dep_delay','United Airlines flights departure delay Q-Q plot (minutes)')
-```
-
 
 
 ```{r}
+ggplot(data = united_flights, mapping = aes(x = gain_per_hour)) +
+      geom_histogram(color = "white",bins = 50,fill = "cadetblue3") + 
+      labs(y = "Number of Flights",
+       x = "Flight Time Gain per Hour (minutes)")
+
+
+# Calculate percentage in range 0 to 30
+# Calculate percentages and quantiles
+percentage_0_30 <- mean(united_flights$gain_per_hour >= 0 &
+                        united_flights$gain_per_hour <= 30,
+                        na.rm = TRUE) * 100
+
+quant75 <- quantile(united_flights$gain_per_hour, 0.75, na.rm = TRUE)
+
+ggplot(united_flights, aes(x = gain_per_hour)) +
+  geom_histogram(aes(y = ..density..), bins = 50, color = "white", fill = "cadetblue3") +
+  geom_vline(xintercept = c(0, 30), color = "darkgreen", linetype = "dashed", size = 1) +
+  geom_vline(xintercept = quant75, color = "red", linetype = "dashed", size = 1) +
+  annotate("text", x = 15, y = 0.03, hjust = -0.45,
+           label = paste0("0-30 min range: \n   ", round(percentage_0_30, 1), "% flights"),
+           color = "darkgreen", size = 4) +
+  annotate("text", x = quant75, y = 0.05, hjust = -0.1,
+           label = paste0("75th percentile:\n   ", round(quant75, 2)),
+           color = "red", size = 4) +
+  labs(x = "Flight Time Gain per Hour (minutes)",
+       y = "Density",
+       title = "Flight Time Gain per Hour (minutes) - Density Histogram")
+
+
+```
+```{r}
+# Calculate percentage in range 0 to 30
+# Calculate percentages and quantiles
+percentage_0_30 <- mean(united_flights$dep_delay >= 0 &
+                        united_flights$dep_delay <= 30,
+                        na.rm = TRUE) * 100
+
+quant75 <- quantile(united_flights$dep_delay, 0.75, na.rm = TRUE)
+
+ggplot(united_flights, aes(x = dep_delay)) +
+  geom_histogram(aes(y = ..density..), bins = 50, color = "white", fill = "cadetblue3") +
+  geom_vline(xintercept = c(0, 30), color = "darkgreen", linetype = "dashed", size = 1) +
+  geom_vline(xintercept = quant75, color = "red", linetype = "dashed", size = 1) +
+  annotate("text", x = 15, y = 0.03, hjust = -0.45,
+           label = paste0("0-30 min range: \n   ", round(percentage_0_30, 1), "% flights"),
+           color = "darkgreen", size = 4) +
+  annotate("text", x = quant75, y = 0.04, hjust = -0.3,
+           label = paste0("75th percentile:", round(quant75, 2)),
+           color = "red", size = 4) +
+  labs(x = "Flight Departure Delay (minutes)",
+       y = "Density",
+       title = "Flight Departure Delay (minutes) - Density Histogram")
+
+
+
+```
+
+
+
+
+
+```{r}
+
+
+
 
 ggplot(united_flights, aes(x=dep_delay, y = gain_per_hour)) +
   geom_point(color = "cadetblue3") + 
+  geom_smooth(method = "lm", se = TRUE, fullrange = TRUE) +
+  labs(x = "Departure Delay (minutes)",
+       y = "Flight Time Gain per Hour (minutes)")
   geom_smooth(method = "lm", se = TRUE, fullrange = TRUE, 
               color = "lightblue", 
               fill = "lightblue") 
+```
 
+```{r}
 
 ggplot(united_flights, aes(x=dep_delay, y = gain_per_hour, color = late)) +
   geom_point() +
   geom_smooth(method = "lm", se = TRUE, fullrange = TRUE) +
-  scale_color_manual(values = c("FALSE" = "cadetblue3", "TRUE" = "indianred"))
-
+  labs(x = "Departure Delay (minutes)",
+       y = "Flight Time Gain per Hour (minutes)",
+       color = "Delay") +
+  scale_color_manual(values = c("FALSE" = "cadetblue3", "TRUE" = "indianred"),
+                     labels = c("On Time or Early", "Late"))
+ 
+```
+```{r}
 ggplot(united_flights, aes(x=dep_delay, y = gain_per_hour, color = very_late)) +
   geom_point() +
   geom_smooth(method = "lm", se = TRUE, fullrange = TRUE) +
-  scale_color_manual(values = c("FALSE" =  "cadetblue3", "TRUE" ="red"))
-
-
+  labs(x = "Departure Delay (minutes)",
+       y = "Flight Time Gain per Hour (minutes)",
+       color = "Delay") +
+  scale_color_manual(values = c("FALSE" =  "cadetblue3", "TRUE" ="red"),
+                     labels = c("On Time or Early", "Very Late (>30 mins)")) 
+  
 
 
 ```
@@ -202,9 +265,12 @@ ggplot(united_flights_delay_below_30min, aes(x=dep_delay, y = gain_per_hour)) +
 ggplot(united_flights_delay_below_30min, aes(x=dep_delay, y = gain_per_hour, color = late)) +
   geom_point() +
   geom_smooth(method = "lm", se = TRUE, fullrange = TRUE) +
-  scale_color_manual(values = c("FALSE" = "cadetblue3", "TRUE" = "indianred"))
-
-
+  labs(x = "Departure Delay (minutes)",
+       y = "Flight Time Gain per Hour (minutes)",
+       color = "Delay") +
+  scale_color_manual(values = c("FALSE" =  "cadetblue3", "TRUE" ="indianred"),
+                     labels = c("On Time or Early", "Late (<30 mins)"))
+   
 ```
 Once departure delay stays under ~30 minutes, United pilots neither systematically gain nor lose more. The strong negative relationship seen in the full dataset completely disappears.
 
@@ -213,6 +279,7 @@ Once departure delay stays under ~30 minutes, United pilots neither systematical
 
 Does gain per hour on flights with slightly late (<30 minutes) departure differ from flights overall?
 ```{r}
+overall_mean <- mean(united_flights$gain_per_hour)
 
 t.test(united_flights_delay_below_30min$gain_per_hour, mu = overall_mean, conf.level = 0.95)
 
@@ -227,7 +294,6 @@ We are 95% confident that the true average recovery for these flights lies betwe
 
 Do United Airlines flights that depart more than 30 minutes late recover significantly less time in the air than flights that depart within 30 minutes of schedule?
 ```{r}
-# 4 – One-sided version of #2 (for extra credit / stronger claim)
 t.test(gain_per_hour ~ very_late, data = united_flights, 
        alternative = "greater", var.equal = TRUE, conf.level = 0.95)
 ```
