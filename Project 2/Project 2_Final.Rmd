@@ -1,0 +1,719 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+#Load libraries
+library(dplyr)
+library(ggplot2)
+library(nycflights13)
+library(resampledata3)
+library(tidyverse)
+```
+
+```{r}
+united_flights <- flights %>%
+  filter(carrier == "UA")%>%
+  filter(!is.na(dep_delay)) %>%
+  filter(!is.na(air_time)) %>%
+  mutate(gain = dep_delay - arr_delay) %>%
+  mutate(net_gain = dep_delay - arr_delay) %>%
+  mutate(gain_per_hour = gain/(air_time/60)) %>%
+  mutate(late = ifelse(dep_delay > 0, TRUE, FALSE)) %>%
+  mutate(very_late = ifelse(dep_delay > 30, TRUE, FALSE))
+united_flights
+
+```
+
+### Departure Delay Analysis(Cameron)
+
+### Applying filters.
+
+```{r}
+glimpse(united_flights)
+```
+
+```{r}
+late <- united_flights %>%
+  filter(dep_delay >0) %>%
+  filter(!is.na(dep_delay))
+glimpse(late)
+```
+
+```{r}
+very_late <- united_flights %>%
+  filter(dep_delay >30) %>%
+  filter(!is.na(dep_delay))
+glimpse(very_late)
+```
+
+```{r}
+united_flights <- united_flights %>%
+  mutate(late = dep_delay >0) %>% 
+  mutate(very_late = dep_delay >30)
+glimpse(united_flights)
+```
+
+### Our exploratory data analysis will start with looking at a summary of arrival delay, departure delay, and net gain.
+
+```{r}
+summary(united_flights$arr_delay)
+```
+
+### Regarding arrival delay, we see that the median is -6, showing that the 50th percentile for arrival delay is showing early arrivals.
+### Arrival delays show significant outliers in both directions.
+
+```{r}
+summary(united_flights$dep_delay)
+```
+
+### Regarding departure delay, we see that the median is 0, showing that the 50th percentile for departure delay cosists of flights leaving on time.
+### Departure delays show significant outliers in the maximum, with a minimum that is much closer to the median and mean.
+
+```{r}
+summary(united_flights$gain)
+```
+
+### Gain gets interpreted differently than the other two facotrs here. Flights have a median of +10 minutes, meaning the 50th percentile of flights are arriving 10 minutes quicker than expexted.
+### The range between the minimum and the median is quite significant, with one flight losing 2 hours and 45 minutes overall.
+### There could also be some outliers at the maximum since there is a 64 minute difference between the minimum and the maximum.
+
+
+```{r}
+ggplot(data = united_flights, mapping = aes(x = arr_delay)) +
+  geom_histogram(bins=40, color="white", fill="steelblue")
+```
+
+```{r}
+ggplot(data = united_flights, mapping = aes(x = dep_delay)) +
+  geom_histogram(bins=40, color="white", fill="steelblue")
+```
+
+
+```{r}
+ggplot(data = united_flights, mapping = aes(x = gain)) +
+  geom_histogram(bins=40, color="white", fill="steelblue")
+```
+
+```{r}
+ggplot(data=united_flights, aes(x=late, y=gain))+
+geom_boxplot(color="steelblue", fill="white")
+```
+
+```{r}
+ggplot(data=united_flights, aes(x=very_late, y=gain))+
+geom_boxplot(color="steelblue", fill="white")
+```
+
+### Late Hypothesis Test
+### µ1(Not Late) - µ2(Late) = 0
+### µ1(Not Late) - µ2(Late) != 0
+
+```{r}
+t.test(gain~late,united_flights, conf.level= 0.95)
+```
+
+### Very Late Hypothesis Test
+### µ1(Not Very Late) - µ2(Very Late) = 0
+### µ1(Not Very Late) - µ2(Very Late) != 0
+
+```{r}
+t.test(gain~very_late,united_flights, conf.level= 0.95)
+```
+
+
+### Both t-tests show significant differences for Late vs. Not Late and Very Late vs. Not Very Late.
+
+### Jacob (five most common destinations)
+
+```{r}
+by_destination <- united_flights %>% 
+  group_by(dest) %>% 
+  summarize(count = n()) %>%
+  arrange(desc(count))
+by_destination
+```
+
+```{r}
+top_five_dest <- united_flights %>%
+  filter(dest == "IAH" | dest == "ORD" | dest == "SFO" | dest == "LAX" | dest == "DEN")
+```
+
+```{r}
+top_five_dest %>%
+  group_by(dest) %>%
+  summarize(mean = mean(net_gain)) %>%
+  arrange(desc(mean))
+```
+
+```{r}
+ggplot(data = top_five_dest, aes(x = dest, y = net_gain))+
+  geom_point(color = "steelblue", alpha = 0.7) +
+  labs(title = "Destination vs. Gain",
+       x = "Destination",
+       y = "Gain")
+```
+
+```{r}
+ggplot(data = top_five_dest, aes(x = dest, y = net_gain)) +
+  geom_col(fill = "steelblue") +
+  labs(title = "Average Net Gain by Destination",
+       x = "Destination Airport",
+       y = "Net Gain")
+```
+
+```{r}
+ggplot(data = top_five_dest, mapping = aes(x = net_gain)) +
+  geom_histogram(breaks=seq(-60,60, by=5), color="white", fill="steelblue") +
+  facet_wrap(~ dest)   +
+  labs(title = "Distributions of Gain by Destination",
+       x = "Gain (minutes)",
+       y = "Number of Flights")
+```
+
+```{r}
+ggplot(data=top_five_dest, aes(x=dest, y=net_gain))+
+geom_boxplot(color="steelblue", fill="white")
+```
+
+**Hypothesis testing**:  Difference in average net gain between airports 
+
+### Filtering by each of the airports to compare each of them in our CI t tests.
+
+```{r}
+united_iah_ord <- united_flights %>%
+  filter(dest == "IAH" | dest == "ORD")
+united_iah_sfo <- united_flights %>%
+  filter(dest == "IAH" | dest == "SFO")
+united_iah_lax <- united_flights %>% 
+  filter(dest == "IAH" | dest == "LAX")
+united_iah_den <- united_flights %>%
+  filter(dest == "IAH" | dest == "DEN")
+united_ord_sfo <- united_flights %>%
+  filter(dest == "ORD" | dest == "SFO")
+united_ord_lax <- united_flights %>%
+  filter(dest == "ORD" | dest == "LAX")
+united_ord_den <- united_flights %>%
+  filter(dest == "ORD" | dest == "DEN")
+united_sfo_lax <- united_flights %>%
+  filter(dest == "SFO" | dest == "LAX")
+united_sfo_den <- united_flights %>%
+  filter(dest == "SFO" | dest == "DEN")
+united_lax_den <- united_flights %>%
+  filter(dest == "LAX" | dest == "DEN")
+```
+
+```{r}
+t.test(net_gain~dest, data = united_iah_ord, conf.level = .95)
+```
+
+```{r}
+t.test(net_gain~dest, data = united_iah_sfo, conf.level = .95)
+```
+
+```{r}
+t.test(net_gain~dest, data = united_iah_lax, conf.level = .95)
+```
+
+```{r}
+t.test(net_gain~dest, data = united_iah_den, conf.level = .95)
+```
+
+```{r}
+t.test(net_gain~dest, data = united_ord_sfo, conf.level = .95)
+```
+
+```{r}
+t.test(net_gain~dest, data = united_ord_lax, conf.level = .95)
+```
+
+```{r}
+t.test(net_gain~dest, data = united_ord_den, conf.level = .95)
+```
+
+```{r}
+t.test(net_gain~dest, data = united_sfo_lax, conf.level = .95)
+```
+
+```{r}
+t.test(net_gain~dest, data = united_sfo_den, conf.level = .95)
+```
+
+```{r}
+t.test(net_gain~dest, data = united_lax_den, conf.level = .95)
+```
+
+(Jack)
+Another common measure of interest, in addition to total gain, is the gain relative to the duration of the flight. Calculate the gain per hour by dividing the total gain by the duration in hours of each flight. Does the average gain per hour differ for flights that departed late versus those that did not? What about for flights that departed more than 30 minutes late?
+```{r}
+summary(united_flights)
+```
+
+```{r}
+ggplot(data = united_flights, mapping = aes(x = gain_per_hour)) +
+      geom_histogram(color = "white",bins = 50,fill = "cadetblue3") + 
+      labs(y = "Number of Flights",
+       x = "Flight Time Gain per Hour (minutes)")
+
+
+# Calculate percentage in range 0 to 30
+# Calculate percentages and quantiles
+percentage_0_30 <- mean(united_flights$gain_per_hour >= 0 &
+                        united_flights$gain_per_hour <= 30,
+                        na.rm = TRUE) * 100
+
+quant75 <- quantile(united_flights$gain_per_hour, 0.75, na.rm = TRUE)
+
+ggplot(united_flights, aes(x = gain_per_hour)) +
+  geom_histogram(aes(y = ..density..), bins = 50, color = "white", fill = "cadetblue3") +
+  geom_vline(xintercept = c(0, 30), color = "darkgreen", linetype = "dashed", size = 1) +
+  geom_vline(xintercept = quant75, color = "red", linetype = "dashed", size = 1) +
+  annotate("text", x = 15, y = 0.03, hjust = -0.45,
+           label = paste0("0-30 min range: \n   ", round(percentage_0_30, 1), "% flights"),
+           color = "darkgreen", size = 4) +
+  annotate("text", x = quant75, y = 0.05, hjust = -0.1,
+           label = paste0("75th percentile:\n   ", round(quant75, 2)),
+           color = "red", size = 4) +
+  labs(x = "Flight Time Gain per Hour (minutes)",
+       y = "Density",
+       title = "Flight Time Gain per Hour (minutes) - Density Histogram")
+
+
+```
+```{r}
+# Calculate percentage in range 0 to 30
+# Calculate percentages and quantiles
+percentage_0_30 <- mean(united_flights$dep_delay >= 0 &
+                        united_flights$dep_delay <= 30,
+                        na.rm = TRUE) * 100
+
+quant75 <- quantile(united_flights$dep_delay, 0.75, na.rm = TRUE)
+
+ggplot(united_flights, aes(x = dep_delay)) +
+  geom_histogram(aes(y = ..density..), bins = 50, color = "white", fill = "cadetblue3") +
+  geom_vline(xintercept = c(0, 30), color = "darkgreen", linetype = "dashed", size = 1) +
+  geom_vline(xintercept = quant75, color = "red", linetype = "dashed", size = 1) +
+  annotate("text", x = 15, y = 0.03, hjust = -0.45,
+           label = paste0("0-30 min range: \n   ", round(percentage_0_30, 1), "% flights"),
+           color = "darkgreen", size = 4) +
+  annotate("text", x = quant75, y = 0.04, hjust = -0.3,
+           label = paste0("75th percentile:", round(quant75, 2)),
+           color = "red", size = 4) +
+  labs(x = "Flight Departure Delay (minutes)",
+       y = "Density",
+       title = "Flight Departure Delay (minutes) - Density Histogram")
+
+
+
+```
+
+
+
+
+
+```{r}
+
+
+
+
+ggplot(united_flights, aes(x=dep_delay, y = gain_per_hour)) +
+  geom_point(color = "cadetblue3") + 
+  geom_smooth(method = "lm", se = TRUE, fullrange = TRUE) +
+  labs(x = "Departure Delay (minutes)",
+       y = "Flight Time Gain per Hour (minutes)")
+  geom_smooth(method = "lm", se = TRUE, fullrange = TRUE, 
+              color = "lightblue", 
+              fill = "lightblue") 
+```
+
+```{r}
+
+ggplot(united_flights, aes(x=dep_delay, y = gain_per_hour, color = late)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = TRUE, fullrange = TRUE) +
+  labs(x = "Departure Delay (minutes)",
+       y = "Flight Time Gain per Hour (minutes)",
+       color = "Delay") +
+  scale_color_manual(values = c("FALSE" = "cadetblue3", "TRUE" = "indianred"),
+                     labels = c("On Time or Early", "Late"))
+ 
+```
+```{r}
+ggplot(united_flights, aes(x=dep_delay, y = gain_per_hour, color = very_late)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = TRUE, fullrange = TRUE) +
+  labs(x = "Departure Delay (minutes)",
+       y = "Flight Time Gain per Hour (minutes)",
+       color = "Delay") +
+  scale_color_manual(values = c("FALSE" =  "cadetblue3", "TRUE" ="red"),
+                     labels = c("On Time or Early", "Very Late (>30 mins)")) 
+  
+
+
+```
+United Airlines flights show a clear negative relationship between departure delay and in-air time recovery (gain per hour), with a consistent negative slope across all views. On-time or early departures (red points) frequently achieve positive or near-zero gain thanks to schedule room. In contrast, very late flights (>30 min delay) rarely recover meaningful time and often lose even more relative to flight duration because possibly severe weather, airport congestion. The longer the initial delay, the less incentive or ability pilots have to “make up” time in the air. 
+
+## Analyzing flights not very late <30min
+```{r}
+united_flights_delay_below_30min <-united_flights %>%
+  filter(dep_delay <= 30)
+```
+
+```{r}
+ggplot(united_flights_delay_below_30min, aes(x=dep_delay, y = gain_per_hour)) +
+  geom_point(color = "cadetblue3") + 
+  geom_smooth(method = "lm", se = TRUE, fullrange = TRUE, 
+              color = "lightblue", 
+              fill = "lightblue") 
+
+
+ggplot(united_flights_delay_below_30min, aes(x=dep_delay, y = gain_per_hour, color = late)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = TRUE, fullrange = TRUE) +
+  labs(x = "Departure Delay (minutes)",
+       y = "Flight Time Gain per Hour (minutes)",
+       color = "Delay") +
+  scale_color_manual(values = c("FALSE" =  "cadetblue3", "TRUE" ="indianred"),
+                     labels = c("On Time or Early", "Late (<30 mins)"))
+   
+```
+Once departure delay stays under ~30 minutes, United pilots neither systematically gain nor lose more. The strong negative relationship seen in the full dataset completely disappears.
+
+
+## Hypothesis Analysis
+
+Does gain per hour on flights with slightly late (<30 minutes) departure differ from flights overall?
+```{r}
+overall_mean <- mean(united_flights$gain_per_hour)
+
+t.test(united_flights_delay_below_30min$gain_per_hour, mu = overall_mean, conf.level = 0.95)
+
+```
+
+**Result:** 
+Flights that departed 30 minutes late or better recovered an average of 3.69 minutes per flight hour in the air.
+United Airlines’ overall averageis 3.61 minutes per hour.
+A one-sample t-test shows that flights with small or no departure delay recover slightly but significantly more time than the airline’s overall average: p = 0.022).
+We are 95% confident that the true average recovery for these flights lies between 3.62 and 3.77 minutes per hour.
+
+
+Do United Airlines flights that depart more than 30 minutes late recover significantly less time in the air than flights that depart within 30 minutes of schedule?
+```{r}
+t.test(gain_per_hour ~ very_late, data = united_flights, 
+       alternative = "greater", var.equal = TRUE, conf.level = 0.95)
+```
+Flights delayed more than 30 minutes recover, on average, about 38 seconds per hour flown than flights delayed 30 minutes or less. A one-sided t-test confirms this disadvantage is highly significant  p ≈ 9.01e-10, and we are 95% confident the true disadvantage is at least 0.46 minutes per hour. Although there is a difference. It is less than a minute on average. A 30-minute ground delay does not translate into a dramatically worse air_time performance.
+
+
+
+```{r}
+################################################################################
+#VISUALIZATION HELPERS
+################################################################################
+
+#' Quick Histogram
+#' @param data Data frame or vector
+#' @param var Variable name (if data is a df)
+#' @param title Plot title
+plot_hist <- function(data, var = NULL, title = NULL,bins = 30) {
+  if(is.null(var)) {
+    # data is a vector
+    p <- ggplot(data = tibble(x = data), mapping = aes(x = x)) +
+      geom_histogram(color = "white",bins = bins)
+  } else {
+    # data is a data frame
+    p <- ggplot(data, aes(x = !!sym(var))) +
+      geom_histogram(color = "white",bins=bins)
+  }
+
+  if(!is.null(title)) {
+    p <- p + labs(title = title)
+  }
+
+  print(p)
+}
+
+
+#' Histogram by Group
+#' @param data Data frame
+#' @param var Variable name
+#' @param group Group variable
+#' @param title Plot title
+plot_hist_grouped <- function(data, var, group, title = NULL, bins = 30) {
+  p <- ggplot(data, aes(x = !!sym(var), fill = !!sym(group))) +
+    geom_histogram(color = "white", position = "identity", alpha = 0.6, bins = bins)
+
+  if(!is.null(title)) {
+    p <- p + labs(title = title)
+  }
+
+  print(p)
+}
+
+
+#' Boxplot by Group
+#' @param data Data frame
+#' @param var Variable name
+#' @param group Group variable
+#' @param title Plot title
+plot_boxplot <- function(data, var, group, title = NULL) {
+  p <- ggplot(data, aes(x = !!sym(group), y = !!sym(var), 
+                        fill = !!sym(group))) +
+    geom_boxplot()
+
+  if(!is.null(title)) {
+    p <- p + labs(title = title)
+  }
+
+  print(p)
+}
+
+
+#' Q-Q Plot
+#' @param data Data frame or vector
+#' @param var Variable name (if data is a df)
+#' @param title Plot title
+plot_qq <- function(data, var = NULL, title = "Q-Q Plot") {
+  if(is.null(var)) {
+    # data is a vector
+    p <- ggplot(data = tibble(x = data), mapping = aes(sample = x)) +
+      geom_qq() + geom_qq_line()
+  } else {
+    # data is a data frame
+    p <- ggplot(data, aes(sample = !!sym(var))) +
+      geom_qq() + geom_qq_line()
+  }
+
+  p <- p + labs(title = title)
+  print(p)
+}
+
+
+#' Bar Plot for Proportions
+#' @param props Named vector or data frame with proportions
+#' @param title Plot title
+plot_barplot <- function(props, names = NULL, title = NULL, ylab = "Proportion") {
+  if(is.null(names)) {
+    names <- names(props)
+  }
+
+  barplot(props, 
+          names.arg = names,
+          main = title,
+          ylab = ylab)
+}
+```
+
+--------------------
+##QUESTION 4 (Ahrial Young)
+
+##Does the average gain per hour differ for longer flights versus shorter flights?
+- find short vs long flights (is this about distance or time duration of the flight or both? Both. Used Wikipedia to draw distinctions)
+
+Short by time <180 (3 hours)
+Short by distance <700
+-------------------------
+# EDA
+```{r}
+by_dest <- group_by(united_flights, dest)
+gain <- summarise(by_dest,
+  count = n(),
+  distance = mean(distance, na.rm = TRUE),
+  gain_per_hour = mean(gain_per_hour, na.rm = TRUE)
+)
+
+#filter out Honolulu because it is a huge outlier (distance is 5000, next closest is closer to 3000 miles)
+gain <- filter(gain, count > 20, dest != "HNL")
+
+ggplot(data = gain, mapping = aes(x = distance, y = gain_per_hour)) +
+  geom_point(aes(size = count), alpha = 1/3) +
+  geom_smooth(se = FALSE)+
+  labs(title = "Flight Length (Distance) vs. Gain Per Hour",
+       x = "Length (Distance)",
+       y = "Gain")
+
+```
+```{r}
+long_distance_flights <- filter(united_flights, distance >= 3000)
+nrow(long_distance_flights) 
+long_distance_flights <- filter(united_flights, distance >= 3000, dest!= 'HNL')
+nrow(long_distance_flights) 
+
+```
+This shows us that most of the long distance flights are to Honolulu. But the next furthest flight is less than 3000 miles away, so we are safe to filter out Honolulu.
+
+```{r}
+by_dest <- group_by(united_flights, dest)
+gain_air <- summarise(by_dest,
+  count = n(),
+  air_time = mean(air_time, na.rm = TRUE),
+  gain_per_hour = mean(gain_per_hour, na.rm = TRUE)
+)
+# filter out Honolulu because it is an outlier and twice as far away (airtime was 600)
+gain_air <- filter(gain_air, count > 20, dest != "HNL")
+
+ggplot(data = gain_air, mapping = aes(x = air_time, y = gain_per_hour)) +
+  geom_point(aes(size = count), alpha = 1/3) +
+  geom_smooth(se = FALSE)+
+  labs(title = "Flight Length (Time) vs. Gain",
+       x = "Legnth (Time)",
+       y = "Gain")
+```
+
+## Look at Averages and Medians to get an idea of spread for both variables
+```{r}
+# Average gain for short flights (time)
+united_flights %>%
+  filter(air_time < 180) %>%
+  summarise(avg_time_gain = mean(gain_per_hour, na.rm = TRUE),
+            median_time_gain = median(gain_per_hour, na.rm = TRUE))
+
+# Average gain for short flights (distance)
+united_flights %>%
+  filter(distance < 700, dest!='HNL') %>%
+  summarise(avg_dist_gain = mean(gain_per_hour, na.rm = TRUE),
+            median_dist_gain = median(gain_per_hour, na.rm = TRUE))
+
+```
+Mean and median are roughly equal for both variables (time and distance).
+
+## Set time and distance flight variable
+
+```{r}
+time_flights <-united_flights %>% 
+  filter(!is.na(gain_per_hour)) %>%
+  filter(dest!= 'HNL')%>%
+  mutate(short_time = air_time <= 180)%>%
+  mutate(long_time = air_time>180)
+
+dist_flights <-united_flights %>% 
+  filter(!is.na(gain_per_hour)) %>%
+  filter(dest!= 'HNL')%>%
+  mutate(short_dist = distance <=700)%>%
+  mutate(long_dist = distance >700)
+```
+
+##Histogram
+```{r}
+ggplot(data=time_flights, aes(x=short_time, y=gain_per_hour))+
+geom_boxplot(color="steelblue", fill="white")+
+labs(title = "Flight Length (Time) vs. Gain Histogram",
+       x = "Length (Time)",
+       y = "Gain")
+
+ggplot(data=dist_flights, aes(x=short_dist, y=gain_per_hour))+
+geom_boxplot(color="steelblue", fill="white")+
+labs(title = "Flight Length (Distance) vs. Gain Histogram",
+       x = "Length (Distance)",
+       y = "Gain")
+```
+Flight Length (Time): The mean gain for short flights (TRUE) is higher than the mean gain for long flights (the mean bar in the middle of the box plot is higher). And the variance is greater for short flights since the white box is larger overall. Additionally, short flights have more outliers and the outliers are more extreme overall with values extending from -100 to 75 compared to long flights where outliers only extend from -50 to 25.
+
+Flight Length (Distance): The mean gain for short flights (TRUE) is higher than the mean gain for long flights (the mean bar in the middle of the box plot is higher). And the variance is greater for short flights since the white box is larger overall. Additionally, short flights have more outliers and the outliers are more extreme overall with values extending from -150 to 75 compared to long flights where outliers only extend from -75 to 25.
+
+
+## Quantitative Summary Stats
+```{r}
+# timed flights
+# summary stats for short by time
+time_flights%>%
+  filter(short_time == TRUE) %>%
+  summarise(
+    mean_short_time = mean(gain_per_hour),
+    median_short_time = median(gain_per_hour),
+    sd_short_time = sd(gain_per_hour),
+    min_short_time = min(gain_per_hour),
+    max_short_time = max(gain_per_hour),
+    n_short_time = n() # Count the number of observations in the filtered data
+  )
+# timed flights
+# summary stats by long
+time_flights%>%
+  filter(long_time == TRUE) %>%
+  summarise(
+    mean_long_time = mean(gain_per_hour),
+    median_long_time = median(gain_per_hour),
+    sd_long_time = sd(gain_per_hour),
+    min_long_time = min(gain_per_hour),
+    max_long_time = max(gain_per_hour),
+    n_long_time = n() # Count the number of observations in the filtered data
+  )
+
+# distance flights
+# summary stats for short by time
+time_flights%>%
+  filter(short_time == TRUE) %>%
+  summarise(
+    mean_short_dist = mean(gain_per_hour),
+    median_short_dist = median(gain_per_hour),
+    sd_short_dist = sd(gain_per_hour),
+    min_short_dist = min(gain_per_hour),
+    max_short_dist = max(gain_per_hour),
+    n_short_dist = n() # Count the number of observations in the filtered data
+  )
+# distance flights
+# summary stats by long
+dist_flights%>%
+  filter(short_dist == FALSE) %>%
+  summarise(
+    mean_long_dist = mean(gain_per_hour),
+    median_long_dist = median(gain_per_hour),
+    sd_long_dist = sd(gain_per_hour),
+    min_long_diste = min(gain_per_hour),
+    max_long_dist = max(gain_per_hour),
+    n_long_dist = n() # Count the number of observations in the filtered data
+  )
+```
+
+
+## Distribution of Gain Per Hour Color Coded By Flight Length
+```{r}
+# set colors
+cols <- c("steelblue","grey")
+
+## Timed flights
+# and assigning colors based on col1
+time_flights_graph <- time_flights%>%
+  mutate(long_time = air_time > 180)
+ggplot(time_flights_graph,aes(air_time,gain_per_hour,colour=short_time))+geom_point()+ 
+
+  # assigning customised colours to the plot 
+  scale_color_manual(values = cols)+
+  labs(title = "Distribution of Air Time", x = "Air Time", y = "Gain Per Hour", color = "Flight Length")
+```
+```{r}
+# set colors
+cols <- c("steelblue","grey")
+
+## Distance flights
+# and assigning colors based on col1
+distance_flights_graph <- dist_flights%>%
+  mutate(long_time = distance > 700)
+ggplot(distance_flights_graph,aes(distance,gain_per_hour,colour=short_dist))+geom_point()+ 
+
+  # assigning customised colours to the plot 
+  scale_color_manual(values = cols)+
+  labs(title = "Distribution of Distance", x = "Distance", y = "Gain Per Hour", color = "Flight Distance")
+```
+
+# Ttests
+
+```{r}
+t.test(gain_per_hour ~ short_time, data= time_flights, conf.level = .95)
+```
+Interpretation:
+pval is less than 0.05 whch indicates a signifcant difference.
+CI does not include 0 which reinforces signifcant difference.
+mean group 1 (short): is 1.8 and group 2 (late) is 5.86
+Short flights are gaining less and longer flights are gaining more on average.
+
+```{r}
+t.test(gain_per_hour ~ short_dist, data= dist_flights, conf.level = .95)
+```
+Interpretation:
+pval is less than 0.05 which indicates a signifcant difference.
+CI does not include 0 which reinforces significant difference.
+Short distance is gaining 2.79 minute per hour and long distance is gaining 11.9 minutes per hour
+
+
