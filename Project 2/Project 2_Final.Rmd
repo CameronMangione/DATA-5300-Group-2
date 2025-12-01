@@ -129,6 +129,8 @@ t.test(gain~very_late,united_flights, conf.level= 0.95)
 
 ### Jacob (five most common destinations)
 
+Below the united_flights data was grouped by the number of flights to each destination airport in descending order.
+
 ```{r}
 by_destination <- united_flights %>% 
   group_by(dest) %>% 
@@ -136,6 +138,7 @@ by_destination <- united_flights %>%
   arrange(desc(count))
 by_destination
 ```
+Five most common destination airports were determined to be IAH, ORD, SFO, LAX, and DEN. By filtering the data into a set containing only these airports, exploratory data analysis could then be performed to better compare these destinations to one another.
 
 ```{r}
 top_five_dest <- united_flights %>%
@@ -165,6 +168,8 @@ ggplot(data = top_five_dest, aes(x = dest, y = net_gain)) +
        y = "Net Gain")
 ```
 
+The distribution of gain for all five destinations from the code above shows a normal distribution with a leftward skew. 
+
 ```{r}
 ggplot(data = top_five_dest, mapping = aes(x = net_gain)) +
   geom_histogram(breaks=seq(-60,60, by=5), color="white", fill="steelblue") +
@@ -173,11 +178,20 @@ ggplot(data = top_five_dest, mapping = aes(x = net_gain)) +
        x = "Gain (minutes)",
        y = "Number of Flights")
 ```
-
+When plotting the distribution of each destination individually, they all broadly share this left skew. 
+ 
 ```{r}
 ggplot(data=top_five_dest, aes(x=dest, y=net_gain))+
 geom_boxplot(color="steelblue", fill="white")
 ```
+
+The generated boxplot showed very similar distributions, medians, and number of outliers for each of the five destinations.
+
+```{r}
+ggplot(data = top_five_dest, aes(x = dep_delay, y = arr_delay, color = dest))+
+  geom_point(alpha = 0.2)
+```
+This code above was designed to see if there were any observable patterns in departure delay and arrival delay between the five airports. The plot did not indicate any clear pattern.
 
 **Hypothesis testing**:  Difference in average net gain between airports 
 
@@ -205,46 +219,67 @@ united_sfo_den <- united_flights %>%
 united_lax_den <- united_flights %>%
   filter(dest == "LAX" | dest == "DEN")
 ```
-
+#### IAH vs ORD
 ```{r}
 t.test(net_gain~dest, data = united_iah_ord, conf.level = .95)
 ```
+Result: 95% CI: (-1.5487933, -0.2825599); p-value = 0.00459
 
+#### IAH vs SFO
 ```{r}
 t.test(net_gain~dest, data = united_iah_sfo, conf.level = .95)
 ```
+Result: 95% CI: (-2.524986, -1.141515); p-value = 2.08e-07
 
+#### IAH vs LAX
 ```{r}
 t.test(net_gain~dest, data = united_iah_lax, conf.level = .95)
 ```
+Result: 95% CI: (-2.524986, -1.141515); p-value = 0.008289
 
+#### IAH vs DEN
 ```{r}
 t.test(net_gain~dest, data = united_iah_den, conf.level = .95)
 ```
+Result: 95% CI: (-0.337286, 1.218539); p-value = 0.2669
 
+#### ORD vs SFO
 ```{r}
 t.test(net_gain~dest, data = united_ord_sfo, conf.level = .95)
 ```
+Result: 95% CI: (-1.6217238, -0.2134245); p-value = 0.01065
 
+#### ORD vs LAX
 ```{r}
 t.test(net_gain~dest, data = united_ord_lax, conf.level = .95)
 ```
+Result: 95% CI: (-0.6794182, 0.7751612); p-value = 0.8973
 
+#### ORD vs DEN
 ```{r}
 t.test(net_gain~dest, data = united_ord_den, conf.level = .95)
 ```
+Result: 95% CI: (-1.2640195, 0.3139191); p-value = 0.2379
 
+#### SFO vs LAX
 ```{r}
 t.test(net_gain~dest, data = united_sfo_lax, conf.level = .95)
 ```
+Result: 95% CI: (-1.64854999, -0.09085532); p-value = 0.02863
 
+#### SFO vs DEN
 ```{r}
 t.test(net_gain~dest, data = united_sfo_den, conf.level = .95)
 ```
+Result: 95% CI: (-2.2293525, -0.5558962); p-value = 0.001108
 
+#### LAX vs DEN
 ```{r}
 t.test(net_gain~dest, data = united_lax_den, conf.level = .95)
 ```
+Result: 95% CI: (-1.3792086, 0.3333652); p-value = 0.2313
+
+SFO saw statistically signifcant differences in average net gain relative to all other airports, though the differences for each pair were relatively small (0-2 minutes).
 
 ## (Jack L (Question 3))
 ## Hourly Air-Time Gain/Loss vs. Departure Delays
