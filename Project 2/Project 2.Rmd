@@ -1,6 +1,8 @@
 ---
 title: "R Notebook"
-output: html_notebook
+output:
+  html_document:
+    df_print: paged
 ---
 
 ```{r}
@@ -146,56 +148,39 @@ t.test(net_gain~dest, data = united_lax_den, conf.level = .95)
 Clean NA 
 
 (Jack)
+## Hourly Air-Time Gain/Loss vs. Departure Delays
+
 Another common measure of interest, in addition to total gain, is the gain relative to the duration of the flight. Calculate the gain per hour by dividing the total gain by the duration in hours of each flight. Does the average gain per hour differ for flights that departed late versus those that did not? What about for flights that departed more than 30 minutes late?
+
+
+### Distribution of Flight Time Gains 
+
+The histogram below shows the distribution of flight time gain or loss per hour for United flights.
 ```{r}
-summary(united_flights)
 
-
-
-```{r}
 ggplot(data = united_flights, mapping = aes(x = gain_per_hour)) +
       geom_histogram(color = "white",bins = 50,fill = "cadetblue3") + 
       labs(y = "Number of Flights",
-       x = "Flight Time Gain per Hour (minutes)")
-
-
-# Calculate percentage in range 0 to 30
-# Calculate percentages and quantiles
-percentage_0_30 <- mean(united_flights$gain_per_hour >= 0 &
-                        united_flights$gain_per_hour <= 30,
-                        na.rm = TRUE) * 100
-
-quant75 <- quantile(united_flights$gain_per_hour, 0.75, na.rm = TRUE)
-
-ggplot(united_flights, aes(x = gain_per_hour)) +
-  geom_histogram(aes(y = ..density..), bins = 50, color = "white", fill = "cadetblue3") +
-  geom_vline(xintercept = c(0, 30), color = "darkgreen", linetype = "dashed", size = 1) +
-  geom_vline(xintercept = quant75, color = "red", linetype = "dashed", size = 1) +
-  annotate("text", x = 15, y = 0.03, hjust = -0.45,
-           label = paste0("0-30 min range: \n   ", round(percentage_0_30, 1), "% flights"),
-           color = "darkgreen", size = 4) +
-  annotate("text", x = quant75, y = 0.05, hjust = -0.1,
-           label = paste0("75th percentile:\n   ", round(quant75, 2)),
-           color = "red", size = 4) +
-  labs(x = "Flight Time Gain per Hour (minutes)",
-       y = "Density",
-       title = "Flight Time Gain per Hour (minutes) - Density Histogram")
-
+       x = "Flight Time Gain/Loss per Hour (minutes)")
 
 ```
+The distribution is highly concentrated around 0 minutes per hour, indicating that most flights neither gain nor lose much time relative to their scheduled duration. Approximately three-quarters of flights cluster very close to zero.
+
+### Distribution of Departure Delays
+
+Before examining the relationship between departure delays and in-flight time recovery, we first explore the distribution of departure delays themselves.
+
 ```{r}
-# Calculate percentage in range 0 to 30
 # Calculate percentages and quantiles
 percentage_0_30 <- mean(united_flights$dep_delay >= 0 &
                         united_flights$dep_delay <= 30,
                         na.rm = TRUE) * 100
-
 quant75 <- quantile(united_flights$dep_delay, 0.75, na.rm = TRUE)
 
 ggplot(united_flights, aes(x = dep_delay)) +
-  geom_histogram(aes(y = ..density..), bins = 50, color = "white", fill = "cadetblue3") +
-  geom_vline(xintercept = c(0, 30), color = "darkgreen", linetype = "dashed", size = 1) +
-  geom_vline(xintercept = quant75, color = "red", linetype = "dashed", size = 1) +
+  geom_histogram(aes(y = after_stat(density)), bins = 50, color = "white", fill = "cadetblue3") +
+  geom_vline(xintercept = c(0, 30), color = "darkgreen", linetype = "dashed", linewidth = 1) +
+  geom_vline(xintercept = quant75, color = "red", linetype = "dashed", linewidth = 1) +
   annotate("text", x = 15, y = 0.03, hjust = -0.45,
            label = paste0("0-30 min range: \n   ", round(percentage_0_30, 1), "% flights"),
            color = "darkgreen", size = 4) +
@@ -206,19 +191,20 @@ ggplot(united_flights, aes(x = dep_delay)) +
        y = "Density",
        title = "Flight Departure Delay (minutes) - Density Histogram")
 
-
-
 ```
+The distribution of departure delays is heavily right-skewed, with the majority of flights concentrated near zero minutes. This indicates that most United flights depart close to their scheduled time. Approximately 39.7% of flights fall within the 0-30 minute delay range, representing short delays that are relatively common. The 75th percentile is around 11 minutes, meaning three-quarters of all flights depart with a delay of 11 minutes or less. The long tail extending to the right shows that while severe delays do occur, they are relatively rare compared to on-time or minimally delayed departures.
 
 
+### Departure Delays and Flight Time Gain per Hour
+
+To understand whether departure delays affect in-flight time recovery, we examine the relationship between departure delay and flight time gain per hour across three increasingly detailed views.
 
 
+#### Overall Relationship
+
+The scatter plot below examines the relationship between departure delay and flight time gain per hour for all United flights, with a linear regression line showing the overall trend.
 
 ```{r}
-
-
-
-
 ggplot(united_flights, aes(x=dep_delay, y = gain_per_hour)) +
   geom_point(color = "cadetblue3") + 
   geom_smooth(method = "lm", se = TRUE, fullrange = TRUE) +
@@ -228,6 +214,12 @@ ggplot(united_flights, aes(x=dep_delay, y = gain_per_hour)) +
               color = "lightblue", 
               fill = "lightblue") 
 ```
+
+The plot shows no strong relationship between departure delays and the amount of air-time gained per hour. Flights generally maintain consistent air-time performance regardless of how delayed the departure was.
+
+#### Comparing Late vs. On-Time Flights
+
+We now separate flights into two categories to see if departure status reveals different patterns.
 
 ```{r}
 
@@ -241,6 +233,13 @@ ggplot(united_flights, aes(x=dep_delay, y = gain_per_hour, color = late)) +
                      labels = c("On Time or Early", "Late"))
  
 ```
+
+The on-time or early group  displays a clear negative slope, while late flights maintain a relatively flat trend around zero gain. This downward slope for on-time/early flights is primarily driven by flights that departed ahead of schedule. These early departures leave with a time buffer but tend to give back that advantage during flight, resulting in negative gain per hour. 
+
+#### Impact of Very Late Departures (>30 minutes)
+
+We also isolate flights with severe delays (>30 minutes) to examine whether extreme delays show different behavior.
+
 ```{r}
 ggplot(united_flights, aes(x=dep_delay, y = gain_per_hour, color = very_late)) +
   geom_point() +
@@ -254,14 +253,21 @@ ggplot(united_flights, aes(x=dep_delay, y = gain_per_hour, color = very_late)) +
 
 
 ```
-United Airlines flights show a clear negative relationship between departure delay and in-air time recovery (gain per hour), with a consistent negative slope across all views. On-time or early departures (red points) frequently achieve positive or near-zero gain thanks to schedule room. In contrast, very late flights (>30 min delay) rarely recover meaningful time and often lose even more relative to flight duration because possibly severe weather, airport congestion. The longer the initial delay, the less incentive or ability pilots have to “make up” time in the air. 
 
-## Analyzing flights not very late <30min
+In this comparison, the blue group now includes all flights except those with very late departures (>30 minutes), combining early departures with flights delayed 0-30 minutes. The negative slope observed is less steep than in the previous plot because the effect of early departures is now averaged with slightly delayed flights (0-30 minutes).
+
+
+## Focusing on Typical Delays: Flights Delayed 30 Minutes or Less
+
+Given that the majority of United flights fall within the 0-30 minute delay range, we now focus specifically on this subset to better understand the typical flight performance.
+
 ```{r}
 united_flights_delay_below_30min <-united_flights %>%
   filter(dep_delay <= 30)
 ```
 
+
+### Overall Pattern for Flights Delayed ≤30 Minutes
 ```{r}
 ggplot(united_flights_delay_below_30min, aes(x=dep_delay, y = gain_per_hour)) +
   geom_point(color = "cadetblue3") + 
@@ -280,12 +286,16 @@ ggplot(united_flights_delay_below_30min, aes(x=dep_delay, y = gain_per_hour, col
                      labels = c("On Time or Early", "Late (<30 mins)"))
    
 ```
-Once departure delay stays under ~30 minutes, United pilots neither systematically gain nor lose more. The strong negative relationship seen in the full dataset completely disappears.
+.Within this typical delay range, United Airlines pilots maintain consistent in-flight performance regardless of whether flights departed early, on-time, or slightly late. This suggests that even moderate delays do not substantially impact a flight's ability to maintain schedule during the air portion of the journey.
 
+## Hypothesis Testing: Impact of Departure Delays on In-Flight Performance
 
-## Hypothesis Analysis
+To quantify the observations from our visualizations, we test two specific hypotheses about flight time recovery.
 
-Does gain per hour on flights with slightly late (<30 minutes) departure differ from flights overall?
+### Hypothesis 1: Do flights with moderate delays (≤30 minutes) differ from the overall average?
+
+We test whether flights delayed 30 minutes or less recover a different amount of time compared to all United flights.
+
 ```{r}
 overall_mean <- mean(united_flights$gain_per_hour)
 
@@ -294,119 +304,19 @@ t.test(united_flights_delay_below_30min$gain_per_hour, mu = overall_mean, conf.l
 ```
 
 **Result:** 
-Flights that departed 30 minutes late or better recovered an average of 3.69 minutes per flight hour in the air.
-United Airlines’ overall averageis 3.61 minutes per hour.
-A one-sample t-test shows that flights with small or no departure delay recover slightly but significantly more time than the airline’s overall average: p = 0.022).
-We are 95% confident that the true average recovery for these flights lies between 3.62 and 3.77 minutes per hour.
+
+Flights that departed with delays of 30 minutes or less recovered an average of 3.69 minutes per flight hour, compared to United Airlines' overall average of 3.61 minutes per hour. A one-sample t-test shows that flights with moderate or no departure delays recover slightly but significantly more time than the airline's overall average (p = 0.022). We are 95% confident that the true average recovery for these flights lies between 3.62 and 3.77 minutes per hour. While statistically significant, the practical difference is quite small—only about 5 seconds per hour.
 
 
-Do United Airlines flights that depart more than 30 minutes late recover significantly less time in the air than flights that depart within 30 minutes of schedule?
+### Hypothesis 2: Do very late flights (>30 minutes) recover less time than flights delayed ≤30 minutes?
+
+We test whether flights with severe delays (>30 minutes) show meaningfully worse in-flight time recovery compared to flights with moderate delays.
+
 ```{r}
 t.test(gain_per_hour ~ very_late, data = united_flights, 
        alternative = "greater", var.equal = TRUE, conf.level = 0.95)
 ```
-Flights delayed more than 30 minutes recover, on average, about 38 seconds per hour flown than flights delayed 30 minutes or less. A one-sided t-test confirms this disadvantage is highly significant  p ≈ 9.01e-10, and we are 95% confident the true disadvantage is at least 0.46 minutes per hour. Although there is a difference. It is less than a minute on average. A 30-minute ground delay does not translate into a dramatically worse air_time performance.
+Flights delayed more than 30 minutes recover, on average, about 38 seconds less per hour flown than flights delayed 30 minutes or less. A one-sided t-test confirms this disadvantage is highly significant (p ≈ 9.01e-10), and we are 95% confident the true difference is at least 0.46 minutes per hour. 
 
-
-
-```{r}
-################################################################################
-#VISUALIZATION HELPERS
-################################################################################
-
-#' Quick Histogram
-#' @param data Data frame or vector
-#' @param var Variable name (if data is a df)
-#' @param title Plot title
-plot_hist <- function(data, var = NULL, title = NULL,bins = 30) {
-  if(is.null(var)) {
-    # data is a vector
-    p <- ggplot(data = tibble(x = data), mapping = aes(x = x)) +
-      geom_histogram(color = "white",bins = bins)
-  } else {
-    # data is a data frame
-    p <- ggplot(data, aes(x = !!sym(var))) +
-      geom_histogram(color = "white",bins=bins)
-  }
-
-  if(!is.null(title)) {
-    p <- p + labs(title = title)
-  }
-
-  print(p)
-}
-
-
-#' Histogram by Group
-#' @param data Data frame
-#' @param var Variable name
-#' @param group Group variable
-#' @param title Plot title
-plot_hist_grouped <- function(data, var, group, title = NULL, bins = 30) {
-  p <- ggplot(data, aes(x = !!sym(var), fill = !!sym(group))) +
-    geom_histogram(color = "white", position = "identity", alpha = 0.6, bins = bins)
-
-  if(!is.null(title)) {
-    p <- p + labs(title = title)
-  }
-
-  print(p)
-}
-
-
-#' Boxplot by Group
-#' @param data Data frame
-#' @param var Variable name
-#' @param group Group variable
-#' @param title Plot title
-plot_boxplot <- function(data, var, group, title = NULL) {
-  p <- ggplot(data, aes(x = !!sym(group), y = !!sym(var), 
-                        fill = !!sym(group))) +
-    geom_boxplot()
-
-  if(!is.null(title)) {
-    p <- p + labs(title = title)
-  }
-
-  print(p)
-}
-
-
-#' Q-Q Plot
-#' @param data Data frame or vector
-#' @param var Variable name (if data is a df)
-#' @param title Plot title
-plot_qq <- function(data, var = NULL, title = "Q-Q Plot") {
-  if(is.null(var)) {
-    # data is a vector
-    p <- ggplot(data = tibble(x = data), mapping = aes(sample = x)) +
-      geom_qq() + geom_qq_line()
-  } else {
-    # data is a data frame
-    p <- ggplot(data, aes(sample = !!sym(var))) +
-      geom_qq() + geom_qq_line()
-  }
-
-  p <- p + labs(title = title)
-  print(p)
-}
-
-
-#' Bar Plot for Proportions
-#' @param props Named vector or data frame with proportions
-#' @param title Plot title
-plot_barplot <- function(props, names = NULL, title = NULL, ylab = "Proportion") {
-  if(is.null(names)) {
-    names <- names(props)
-  }
-
-  barplot(props, 
-          names.arg = names,
-          main = title,
-          ylab = ylab)
-}
-```
-
-
-
+However, while statistically significant, the practical impact is modest—less than one minute per hour on average. This suggests that a severe ground delay (>30 minutes) does not translate into dramatically worse in-flight performance.
 
